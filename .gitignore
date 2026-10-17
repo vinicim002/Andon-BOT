@@ -1,0 +1,63 @@
+# --- Material interno (repositório público) ---
+# Documento de arquitetura completo: contém clientes, pilotos e custos. Cópia local de cada pessoa.
+DECISOES-DE-ARQUITETURA.md
+# Bot antigo: repositório próprio, usado só como referência local.
+handle-bot-antigo/
+
+# --- Pastas de ferramentas de IA (proibidas; o contexto do projeto fica em .cloud/) ---
+.claude/
+.codex/
+.chatgpt/
+.cursor/
+.antigravity/
+.agents/
+.windsurf/
+.aider*
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+
+# --- Ambiente e segredos ---
+# O curinga cobre cópias (.env.local, .env.bak etc.); só o exemplo é versionado.
+.env*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+service-account*.json
+*-sa.json
+credentials*.json
+secrets/
+
+# --- Dados locais ---
+*.sql.gz
+*.dump
+*.backup
+*.db
+*.sqlite*
+backups/
+
+# --- Front-end ---
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+.eslintcache
+
+# --- Back-end ---
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.log
+logs/
+
+# --- IDE e sistema ---
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
