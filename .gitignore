@@ -4,9 +4,10 @@ DECISOES-DE-ARQUITETURA.md
 # Bot antigo: repositório próprio, usado só como referência local.
 handle-bot-antigo/
 
-# --- Pastas de ferramentas de IA (proibidas; o contexto do projeto fica em .claude/) ---
-# Dentro de .claude/ só as regras do time são versionadas; configuração local de cada máquina não.
-.claude/settings.local.json
+# --- Pastas de ferramentas de IA ---
+# .claude/ é a pasta de contexto do projeto, mas fica só na máquina de cada pessoa.
+.claude/
+# As demais são proibidas.
 .codex/
 .chatgpt/
 .cursor/

@@ -3,12 +3,9 @@
 Plataforma SaaS B2B multiempresa para operação de atendimento, vendas e automação conversacional,
 começando pelo WhatsApp oficial.
 
-> Regras, convenções e contexto do projeto: [`.claude/`](.claude/README.md). Leia antes de contribuir.
-
 ## Estrutura
 
 ```
-.claude/     regras e contexto do projeto
 frontend/    console operacional (React + TypeScript + Vite)
 backend/     API (Java 21 + Spring Boot + Maven)
 ```
