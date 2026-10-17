@@ -1,4 +1,4 @@
-# .cloud — contexto central do projeto
+# .claude — contexto central do projeto
 
 Esta pasta é a **única fonte central** de regras, convenções e contexto do Andon.
 Vale para qualquer pessoa ou ferramenta (inclusive assistentes de IA) que trabalhe no repositório.
@@ -16,7 +16,7 @@ Antes de qualquer alteração, leia os arquivos abaixo:
 
 ## Regras inegociáveis
 
-1. **Uma única pasta de contexto: `.cloud/`.** Não criar `.claude/`, `.codex/`, `.chatgpt/`,
+1. **Uma única pasta de contexto: `.claude/`.** Não criar `.codex/`, `.chatgpt/`,
    `.cursor/`, `.antigravity/`, `.agents/`, `AGENTS.md` ou qualquer pasta/arquivo específico de
    assistente, agente ou ferramenta de IA. Tudo que orienta o desenvolvimento fica aqui.
 2. **Commits sem coautoria de IA** e no padrão `prefixo: descrição em português`.

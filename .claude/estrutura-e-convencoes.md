@@ -3,7 +3,7 @@
 ## Monorepo
 
 ```
-.cloud/      regras e contexto (única pasta de contexto permitida)
+.claude/     regras e contexto (única pasta de contexto permitida)
 frontend/    console operacional — React + TypeScript + Vite
 backend/     API e (futuramente) workers — Java 21 + Spring Boot + Maven
 docker-compose.yml  serviços do ambiente local (Postgres)

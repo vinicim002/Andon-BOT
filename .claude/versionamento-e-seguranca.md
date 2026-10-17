@@ -19,7 +19,8 @@
   explícita em contrário registrada nesta pasta;
 - o documento `DECISOES-DE-ARQUITETURA.md` (cópia local de cada pessoa);
 - a pasta `handle-bot-antigo/` (repositório próprio, usado só como referência local);
-- pastas de ferramentas de IA (`.claude/`, `.codex/`, `.cursor/` etc.) — que, de qualquer forma,
+- configurações locais de cada máquina dentro de `.claude/` (`settings.local.json`);
+- pastas de outras ferramentas de IA (`.codex/`, `.cursor/` etc.) — que, de qualquer forma,
   não devem ser criadas.
 
 O `.gitignore` da raiz já bloqueia esses padrões. **Não remova entradas dele** sem decisão do time.
