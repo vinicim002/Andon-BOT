@@ -41,7 +41,7 @@ export function LoginPage() {
       <aside className={s.showcase} aria-hidden>
         <div className={s.glow} />
         <div className={s.grain} />
-        <img className={s.logo} src="/brand/andon-logo-dark.png" alt="" />
+        <img className={s.logo} src="/brand/web/andon-logo-dark.png" alt="" />
       </aside>
 
       <main className={s.formSide}>

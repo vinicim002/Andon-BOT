@@ -1,6 +1,8 @@
 # --- Material interno (repositório público) ---
 # Documento de arquitetura completo: contém clientes, pilotos e custos. Cópia local de cada pessoa.
 DECISOES-DE-ARQUITETURA.md
+# Pasta de documentação interna (arquitetura, arquivos-fonte da marca etc.).
+doc/
 # Bot antigo: repositório próprio, usado só como referência local.
 handle-bot-antigo/
 

@@ -6,8 +6,8 @@ import s from './BrandSymbol.module.css';
 export function BrandSymbol({ className, label = 'Andon BOT' }: { className?: string; label?: string }) {
   return (
     <span className={cx(s.symbol, className)} role="img" aria-label={label}>
-      <img className={s.light} src="/brand/andon-symbol.png" alt="" />
-      <img className={s.dark} src="/brand/andon-symbol-dark.png" alt="" />
+      <img className={s.light} src="/brand/web/andon-symbol.png" alt="" />
+      <img className={s.dark} src="/brand/web/andon-symbol-dark.png" alt="" />
     </span>
   );
 }
