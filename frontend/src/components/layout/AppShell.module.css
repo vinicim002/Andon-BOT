@@ -1,0 +1,133 @@
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-areas:
+    'sidebar topbar'
+    'sidebar content';
+  height: 100%;
+}
+
+.sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-3);
+  border-right: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.brand {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-1) 0 var(--space-2);
+}
+/* A arte do logo tem texto escuro: no tema escuro ganha uma placa clara para não sumir. */
+.brand img {
+  width: 128px;
+  height: auto;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+.navLink svg {
+  width: 18px;
+  height: 18px;
+}
+.navLink:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.active,
+.active:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.topbar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.tenant {
+  font-weight: var(--weight-semibold);
+}
+
+.topbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-medium);
+}
+
+.content {
+  grid-area: content;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-6);
+}
+
+/* Telas estreitas: menu vira faixa horizontal no topo. O console é desktop-first. */
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto var(--topbar-height) 1fr;
+    grid-template-areas:
+      'sidebar'
+      'topbar'
+      'content';
+  }
+  .sidebar {
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    padding: var(--space-2) var(--space-3);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    display: none;
+  }
+  .nav {
+    flex-direction: row;
+  }
+  .navLink span {
+    white-space: nowrap;
+  }
+  .topbar,
+  .content {
+    padding-inline: var(--space-4);
+  }
+}

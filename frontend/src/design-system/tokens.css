@@ -1,0 +1,115 @@
+/* Tokens do design system Andon. Componentes usam apenas estas variáveis — nunca cor solta.
+   Os nomes descrevem o papel (superfície, borda, tom), não a cor; o tema escuro troca só valores.
+   Evolui a identidade do bot atual: azul como cor de ação, superfícies claras e densas. */
+
+:root {
+  color-scheme: light;
+
+  /* Tipografia */
+  --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* Espaçamento (escala de 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Bordas e elevação */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1);
+
+  /* Superfícies e texto */
+  --bg-app: #eef3fa;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f5f8fc;
+  --bg-hover: #edf3fb;
+  --bg-selected: #e3eeff;
+  --border: #dde5f0;
+  --border-strong: #c3d0e2;
+  --text-primary: #0f1b33;
+  --text-secondary: #4a5872;
+  --text-muted: #7a879d;
+  --text-on-accent: #ffffff;
+
+  /* Ação */
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-soft: #e8f1ff;
+  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+
+  /* Tons semânticos (badges, alertas) */
+  --tone-neutral-bg: #eef1f6;
+  --tone-neutral-fg: #3f4b60;
+  --tone-info-bg: #e6f2ff;
+  --tone-info-fg: #1747a6;
+  --tone-success-bg: #e5f7ee;
+  --tone-success-fg: #146c43;
+  --tone-warning-bg: #fff3e0;
+  --tone-warning-fg: #8a4b00;
+  --tone-danger-bg: #ffe9ec;
+  --tone-danger-fg: #b0122f;
+
+  /* Conversa */
+  --bubble-inbound: #ffffff;
+  --bubble-outbound: #dceaff;
+  --bubble-internal: #fff6d9;
+  --bubble-internal-border: #f0d77c;
+
+  /* Shell */
+  --sidebar-width: 224px;
+  --topbar-height: 56px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-app: #111318;
+  --bg-surface: #1a1d24;
+  --bg-subtle: #20242c;
+  --bg-hover: #262b35;
+  --bg-selected: #1e2d4a;
+  --border: #2c313c;
+  --border-strong: #3c4350;
+  --text-primary: #e8ebf1;
+  --text-secondary: #b0b8c6;
+  --text-muted: #8590a2;
+
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: #1c2c4a;
+  --focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.45);
+
+  --tone-neutral-bg: #2a2f39;
+  --tone-neutral-fg: #c5cbd6;
+  --tone-info-bg: #16294a;
+  --tone-info-fg: #93c0ff;
+  --tone-success-bg: #133325;
+  --tone-success-fg: #7fd8a8;
+  --tone-warning-bg: #3a2a12;
+  --tone-warning-fg: #f5c27a;
+  --tone-danger-bg: #3d1820;
+  --tone-danger-fg: #ff9aa9;
+
+  --bubble-inbound: #232832;
+  --bubble-outbound: #1e3358;
+  --bubble-internal: #3a3218;
+  --bubble-internal-border: #6b5a22;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
