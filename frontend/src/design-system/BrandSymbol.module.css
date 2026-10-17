@@ -1,0 +1,16 @@
+.symbol {
+  display: inline-block;
+}
+.symbol img {
+  height: 100%;
+  width: auto;
+}
+.dark {
+  display: none;
+}
+:global([data-theme='dark']) .light {
+  display: none;
+}
+:global([data-theme='dark']) .dark {
+  display: inline;
+}

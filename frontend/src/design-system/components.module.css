@@ -172,3 +172,85 @@
 .table tbody tr:hover {
   background: var(--bg-hover);
 }
+
+/* Etiqueta com ponto colorido */
+.tagChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+.tagDot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+}
+.dot-blue { background: var(--tag-blue); }
+.dot-green { background: var(--tag-green); }
+.dot-orange { background: var(--tag-orange); }
+.dot-red { background: var(--tag-red); }
+.dot-purple { background: var(--tag-purple); }
+.dot-cyan { background: var(--tag-cyan); }
+.tagRemove {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* Avatar: paletas, anel e selo */
+.p1 { background: var(--avatar-1-bg); color: var(--avatar-1-fg); }
+.p2 { background: var(--avatar-2-bg); color: var(--avatar-2-fg); }
+.p3 { background: var(--avatar-3-bg); color: var(--avatar-3-fg); }
+.p4 { background: var(--avatar-4-bg); color: var(--avatar-4-fg); }
+.p5 { background: var(--avatar-5-bg); color: var(--avatar-5-fg); }
+.p6 { background: var(--avatar-6-bg); color: var(--avatar-6-fg); }
+.avatarRing {
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+}
+.avatarBadge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 42%;
+  height: 42%;
+  min-width: 16px;
+  min-height: 16px;
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-full);
+  background: var(--color-whatsapp);
+  color: #ffffff;
+}
+.avatarBadge svg {
+  width: 70%;
+  height: 70%;
+}
+
+/* Tooltip */
+.tooltip {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--text-primary);
+  color: var(--bg-surface);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+}
+
+/* Página comum */
+.page {
+  padding: var(--space-6);
+}

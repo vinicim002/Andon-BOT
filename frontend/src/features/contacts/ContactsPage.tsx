@@ -3,15 +3,15 @@ import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import {
   Avatar,
-  Badge,
   Button,
   DataTable,
   EmptyState,
   ErrorState,
   LoadingState,
+  Page,
   PageHeader,
+  TagChip,
 } from '../../design-system/components';
-import type { Tone } from '../../domain/labels';
 import { formatDate } from '../../lib/format';
 import s from '../features.module.css';
 
@@ -19,7 +19,7 @@ export function ContactsPage() {
   const contacts = useQuery(api.contacts);
 
   return (
-    <>
+    <Page>
       <PageHeader
         title="Contatos"
         description="Pessoas e organizações que conversam com a empresa."
@@ -55,7 +55,7 @@ export function ContactsPage() {
                   <td>
                     <span className={s.tags}>
                       {contact.tags.map((tag) => (
-                        <Badge key={tag.id} tone={tag.color as Tone}>{tag.name}</Badge>
+                        <TagChip key={tag.id} color={tag.color}>{tag.name}</TagChip>
                       ))}
                     </span>
                   </td>
@@ -65,6 +65,6 @@ export function ContactsPage() {
             </tbody>
           </DataTable>
         ))}
-    </>
+    </Page>
   );
 }

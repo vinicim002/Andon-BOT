@@ -1,12 +1,35 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 import { DropdownMenu } from 'radix-ui';
-import { ArrowRightLeft, Bot, BotOff, Check, CheckCheck, Clock, Send, UserCheck } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRightLeft,
+  Bot,
+  BotOff,
+  Camera,
+  CheckCircle2,
+  Forward,
+  Mic,
+  MoreHorizontal,
+  Paperclip,
+  Phone,
+  RotateCcw,
+  Send,
+  Smile,
+  Ticket,
+  Type,
+  UserCheck,
+  Zap,
+} from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
-import { Avatar, Badge, Button, LoadingState } from '../../design-system/components';
-import { conversationStatus } from '../../domain/labels';
+import { BrandSymbol } from '../../design-system/BrandSymbol';
+import { Avatar, Button, LoadingState, Tooltip } from '../../design-system/components';
+import { WhatsAppIcon } from '../../design-system/icons';
 import type { Conversation, Id, Message, OperationalQueue, User } from '../../domain/types';
-import { formatTime } from '../../lib/format';
+import { cx } from '../../lib/cx';
+import { formatDayLabel, formatTime, isSameDay } from '../../lib/format';
+import { useNow } from '../../lib/useNow';
+import { DeliveryIcon } from './ConversationList';
 import s from './Inbox.module.css';
 
 type Props = {
@@ -19,66 +42,99 @@ type Props = {
   onTransfer: (queueId: Id) => void;
   onToggleBot: () => void;
   onResolve: () => void;
+  onReopen: () => void;
   onSend: (body: string, internal: boolean) => void;
 };
 
 export function ConversationView(props: Props) {
-  const { conversation, extraMessages, queues, users, me } = props;
-  const loaded = useQuery(() => api.messages(conversation.id), conversation.id);
+  const { conversation: c, extraMessages, queues, users, me } = props;
+  const loaded = useQuery(() => api.messages(c.id), c.id);
   const messages = [...(loaded.data ?? []), ...extraMessages];
-  const status = conversationStatus[conversation.status];
-  const isMine = conversation.assigneeId === me.id;
-  const userName = (id?: Id) => users.find((u) => u.id === id)?.name;
+  const userById = (id?: Id) => users.find((u) => u.id === id);
+  const assignee = userById(c.assigneeId);
+  const queue = queues.find((q) => q.id === c.queueId);
+  const isMine = c.assigneeId === me.id;
+  const resolved = c.status === 'resolved' || c.status === 'closed';
+  const now = useNow(30_000);
+  const windowClosed = !c.windowExpiresAt || new Date(c.windowExpiresAt).getTime() < now;
 
   const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => endRef.current?.scrollIntoView({ block: 'end' }), [messages.length]);
+  const scrollToEnd = () => endRef.current?.scrollIntoView({ block: 'end' });
+  useEffect(() => {
+    scrollToEnd();
+  }, [messages.length]);
+
+  const subtitle = assignee
+    ? `atribuído a ${assignee.id === me.id ? 'você' : assignee.name}`
+    : queue
+      ? `na fila ${queue.name}`
+      : c.botPaused
+        ? 'sem responsável'
+        : 'em atendimento automático';
 
   return (
-    <section className={s.conversation} aria-label={`Conversa com ${conversation.contact.name}`}>
+    <section className={s.conversation} aria-label={`Conversa com ${c.contact.name}`}>
       <header className={s.convHeader}>
-        <Avatar name={conversation.contact.name} size={36} />
+        <Avatar name={c.contact.name} size={38} />
         <div className={s.convTitle}>
-          <strong>{conversation.contact.name}</strong>
+          <strong>{c.contact.name}</strong>
           <span>
-            {conversation.contact.phone} · via {conversation.endpoint.name}
+            <WhatsAppIcon className={s.convChannel} />#{c.contact.code} {subtitle}
           </span>
         </div>
-        <Badge tone={status.tone}>{status.label}</Badge>
+
         <div className={s.convActions}>
-          {!isMine && (
+          <Tooltip content="Ligação (em breve)" side="bottom">
+            <span>
+              <Button variant="ghost" iconOnlyLabel="Ligar" icon={<Phone />} disabled />
+            </span>
+          </Tooltip>
+          {!isMine && !resolved && (
             <Button variant="primary" icon={<UserCheck />} onClick={props.onAssign}>
               Assumir
             </Button>
           )}
+          {resolved ? (
+            <Button icon={<RotateCcw />} onClick={props.onReopen}>
+              Reabrir
+            </Button>
+          ) : (
+            <Button icon={<CheckCircle2 />} onClick={props.onResolve}>
+              Resolver
+            </Button>
+          )}
+
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <Button icon={<ArrowRightLeft />}>Transferir</Button>
+              <Button variant="ghost" iconOnlyLabel="Mais ações" icon={<MoreHorizontal />} />
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
-                <DropdownMenu.Label className={s.menuLabel}>Transferir para a fila</DropdownMenu.Label>
-                {queues.map((q) => (
-                  <DropdownMenu.Item
-                    key={q.id}
-                    className={s.menuItem}
-                    disabled={q.id === conversation.queueId}
-                    onSelect={() => props.onTransfer(q.id)}
-                  >
-                    {q.name}
-                  </DropdownMenu.Item>
-                ))}
+                <DropdownMenu.Sub>
+                  <DropdownMenu.SubTrigger className={s.menuItem}>
+                    <ArrowRightLeft aria-hidden /> Transferir para fila
+                  </DropdownMenu.SubTrigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.SubContent className={s.menu} sideOffset={6}>
+                      {queues.map((q) => (
+                        <DropdownMenu.Item key={q.id} className={s.menuItem} disabled={q.id === c.queueId} onSelect={() => props.onTransfer(q.id)}>
+                          <span className={cx(s.queueDot, s[`queue-${q.color}`])} aria-hidden />
+                          {q.name}
+                        </DropdownMenu.Item>
+                      ))}
+                    </DropdownMenu.SubContent>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Sub>
+                <DropdownMenu.Item className={s.menuItem} onSelect={props.onToggleBot}>
+                  {c.botPaused ? <Bot aria-hidden /> : <BotOff aria-hidden />}
+                  {c.botPaused ? 'Retomar bot' : 'Pausar bot'}
+                </DropdownMenu.Item>
+                <DropdownMenu.Item className={s.menuItem} disabled={Boolean(c.ticketId)}>
+                  <Ticket aria-hidden /> {c.ticketId ? 'Ticket já aberto' : 'Abrir ticket'}
+                </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
-          <Button
-            variant="ghost"
-            iconOnlyLabel={conversation.botPaused ? 'Retomar bot' : 'Pausar bot'}
-            icon={conversation.botPaused ? <BotOff /> : <Bot />}
-            onClick={props.onToggleBot}
-          />
-          <Button variant="ghost" icon={<CheckCheck />} onClick={props.onResolve} disabled={conversation.status === 'resolved'}>
-            Resolver
-          </Button>
         </div>
       </header>
 
@@ -86,79 +142,145 @@ export function ConversationView(props: Props) {
         {loaded.status === 'loading' ? (
           <LoadingState label="Carregando mensagens…" />
         ) : (
-          messages.map((m) => <MessageBubble key={m.id} message={m} authorName={userName(m.senderUserId)} />)
+          messages.map((m, i) => (
+            <Fragment key={m.id}>
+              {(i === 0 || !isSameDay(messages[i - 1].createdAt, m.createdAt)) && (
+                <div className={s.daySeparator}>
+                  <span>{formatDayLabel(m.createdAt)}</span>
+                </div>
+              )}
+              {/* Imagens mudam a altura depois de carregar; rola de novo para não parar no meio. */}
+              <MessageRow message={m} author={userById(m.senderUserId)} onMediaLoad={scrollToEnd} />
+            </Fragment>
+          ))
         )}
         <div ref={endRef} />
       </div>
 
-      <Composer onSend={props.onSend} disabled={!isMine} />
+      {resolved ? (
+        <div className={s.composerNotice}>
+          <CheckCircle2 aria-hidden /> Atendimento resolvido. Reabra para enviar novas mensagens.
+        </div>
+      ) : !isMine ? (
+        <div className={s.composerNotice}>
+          <UserCheck aria-hidden />
+          {assignee ? `Este atendimento está com ${assignee.name}.` : 'Este atendimento ainda não tem responsável.'}
+          <Button variant="primary" onClick={props.onAssign}>
+            Assumir atendimento
+          </Button>
+        </div>
+      ) : (
+        <Composer onSend={props.onSend} windowClosed={windowClosed} />
+      )}
     </section>
   );
 }
 
-function MessageBubble({ message, authorName }: { message: Message; authorName?: string }) {
-  if (message.senderType === 'system') {
-    return <div className={s.systemEvent}>{message.body}</div>;
+function MessageRow({ message: m, author, onMediaLoad }: { message: Message; author?: User; onMediaLoad: () => void }) {
+  if (m.senderType === 'system') {
+    return <div className={s.systemEvent}>{m.body}</div>;
   }
 
-  const kind = message.direction === 'internal' ? s.internal : message.direction === 'outbound' ? s.outbound : s.inbound;
-  const author = message.senderType === 'bot' ? 'Bot' : message.direction === 'internal' ? `Nota de ${authorName}` : authorName;
+  const inbound = m.direction === 'inbound';
+  const internal = m.direction === 'internal';
+  const authorName = m.senderType === 'bot' ? 'Andon BOT' : author?.name;
+  const imageOnly = m.contentType === 'image' && !m.body;
 
   return (
-    <div className={`${s.bubble} ${kind}`}>
-      {message.direction !== 'inbound' && author && <span className={s.bubbleAuthor}>{author}</span>}
-      <p>{message.body}</p>
-      <span className={s.bubbleMeta}>
-        {formatTime(message.createdAt)}
-        {message.deliveryStatus === 'pending' && <Clock aria-label="Enviando" />}
-        {message.deliveryStatus === 'sent' && <Check aria-label="Enviada" />}
-        {(message.deliveryStatus === 'delivered' || message.deliveryStatus === 'read') && (
-          <CheckCheck aria-label={message.deliveryStatus === 'read' ? 'Lida' : 'Entregue'} className={message.deliveryStatus === 'read' ? s.read : undefined} />
+    <div className={cx(s.messageRow, inbound ? s.rowIn : s.rowOut)}>
+      <div className={cx(s.bubble, inbound ? s.inbound : internal ? s.internal : s.outbound, imageOnly && s.mediaBubble)}>
+        {!inbound && authorName && <span className={s.bubbleAuthor}>{internal ? `Nota interna · ${authorName}` : `${authorName}:`}</span>}
+        {m.forwarded && (
+          <span className={s.forwarded}>
+            <Forward aria-hidden /> Encaminhada
+          </span>
         )}
-      </span>
+        {m.replyTo && (
+          <span className={s.quote}>
+            <strong>{m.replyTo.authorName}</strong>
+            <span className={s.quotePreview}>
+              {m.replyTo.contentType === 'image' && <Camera aria-hidden />}
+              {m.replyTo.preview}
+            </span>
+          </span>
+        )}
+        {m.contentType === 'image' && m.mediaUrl && <img className={s.media} src={m.mediaUrl} alt="Imagem enviada pelo contato" onLoad={onMediaLoad} />}
+        {m.body && <p>{m.body}</p>}
+        <span className={cx(s.bubbleMeta, imageOnly && s.metaOverlay)}>
+          {formatTime(m.createdAt)}
+          <DeliveryIcon status={m.deliveryStatus} />
+        </span>
+      </div>
+      {!inbound &&
+        (m.senderType === 'bot' ? (
+          <span className={s.botAvatar} aria-hidden>
+            <BrandSymbol className={s.botSymbol} label="" />
+          </span>
+        ) : (
+          author && <Avatar name={author.name} size={26} />
+        ))}
     </div>
   );
 }
 
-function Composer({ onSend, disabled }: { onSend: (body: string, internal: boolean) => void; disabled: boolean }) {
+function Composer({ onSend, windowClosed }: { onSend: (body: string, internal: boolean) => void; windowClosed: boolean }) {
   const [body, setBody] = useState('');
   const [internal, setInternal] = useState(false);
+  const blocked = windowClosed && !internal;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const text = body.trim();
-    if (!text) return;
+    if (!text || blocked) return;
     onSend(text, internal);
     setBody('');
   };
 
   return (
-    <form className={`${s.composer} ${internal ? s.composerInternal : ''}`} onSubmit={submit}>
-      <div className={s.composerModes} role="radiogroup" aria-label="Tipo de mensagem">
-        <button type="button" role="radio" aria-checked={!internal} className={!internal ? s.modeActive : s.mode} onClick={() => setInternal(false)}>
-          Responder
-        </button>
-        <button type="button" role="radio" aria-checked={internal} className={internal ? s.modeActive : s.mode} onClick={() => setInternal(true)}>
-          Nota interna
-        </button>
-      </div>
-      <div className={s.composerRow}>
+    <div className={s.composerArea}>
+      <form className={cx(s.composer, internal && s.composerInternal)} onSubmit={submit}>
+        <div className={s.composerTabs} role="tablist" aria-label="Tipo de mensagem">
+          <button type="button" role="tab" aria-selected={!internal} className={cx(s.composerTab, !internal && s.composerTabActive)} onClick={() => setInternal(false)}>
+            Mensagem
+          </button>
+          <button type="button" role="tab" aria-selected={internal} className={cx(s.composerTab, internal && s.composerTabActive)} onClick={() => setInternal(true)}>
+            Anotações internas
+          </button>
+        </div>
+
+        {blocked && (
+          <p className={s.windowWarning}>
+            <AlertTriangle aria-hidden /> A janela de 24h do WhatsApp terminou. Envie um modelo aprovado para retomar a conversa.
+          </p>
+        )}
+
         <label htmlFor="composer" className="visually-hidden">
-          Mensagem
+          {internal ? 'Anotação interna' : 'Mensagem'}
         </label>
         <textarea
           id="composer"
-          rows={2}
+          rows={3}
           value={body}
-          disabled={disabled}
-          placeholder={disabled ? 'Assuma a conversa para responder' : internal ? 'Visível apenas para a equipe' : 'Escreva uma mensagem'}
+          disabled={blocked}
+          placeholder={internal ? 'Escreva uma anotação visível só para a equipe. Use @ para mencionar.' : 'Digite / para adicionar uma Mensagem Pronta'}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) submit(e);
           }}
         />
-        <Button type="submit" variant="primary" iconOnlyLabel="Enviar" icon={<Send />} disabled={disabled || !body.trim()} />
-      </div>
-    </form>
+
+        <div className={s.composerToolbar}>
+          <Button variant="ghost" iconOnlyLabel="Mensagens prontas" icon={<Zap />} />
+          <Button variant="ghost" iconOnlyLabel="Emoji" icon={<Smile />} />
+          <Button variant="ghost" iconOnlyLabel="Formatação" icon={<Type />} />
+          <Button variant="ghost" iconOnlyLabel="Anexar arquivo" icon={<Paperclip />} disabled={internal} />
+          <Button variant="ghost" iconOnlyLabel="Gravar áudio" icon={<Mic />} disabled={internal} />
+          <Button type="submit" variant="ghost" className={s.sendButton} iconOnlyLabel="Enviar" icon={<Send />} disabled={!body.trim() || blocked} />
+        </div>
+      </form>
+      <p className={s.composerHint}>
+        Aperte <strong>Enter</strong> para enviar ou <strong>Shift+Enter</strong> para quebrar a linha.
+      </p>
+    </div>
   );
 }

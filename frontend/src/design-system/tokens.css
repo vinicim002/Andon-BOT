@@ -1,20 +1,23 @@
 /* Tokens do design system Andon. Componentes usam apenas estas variáveis — nunca cor solta.
    Os nomes descrevem o papel (superfície, borda, tom), não a cor; o tema escuro troca só valores.
-   Evolui a identidade do bot atual: azul como cor de ação, superfícies claras e densas. */
+   Paleta, fontes e marca herdadas do Andon BOT atual (azul como cor de ação; escuro neutro). */
 
 :root {
   color-scheme: light;
 
   /* Tipografia */
   --font-sans: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-display: 'Urbanist Variable', 'Urbanist', var(--font-sans);
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
   --text-md: 0.875rem;
   --text-lg: 1rem;
   --text-xl: 1.25rem;
+  --text-2xl: 1.75rem;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
+  --weight-bold: 700;
 
   /* Espaçamento (escala de 4px) */
   --space-1: 4px;
@@ -30,86 +33,142 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-full: 999px;
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-sm: 0 1px 2px rgba(50, 50, 93, 0.08);
+  --shadow-md: 0 18px 42px rgba(50, 50, 93, 0.12);
 
   /* Superfícies e texto */
-  --bg-app: #eef3fa;
+  --bg-app: #edf3fb;
   --bg-surface: #ffffff;
-  --bg-subtle: #f5f8fc;
-  --bg-hover: #edf3fb;
-  --bg-selected: #e3eeff;
-  --border: #dde5f0;
-  --border-strong: #c3d0e2;
-  --text-primary: #0f1b33;
+  --bg-subtle: #f6f9fc;
+  --bg-hover: #f0f5fc;
+  --bg-selected: #e8f1ff;
+  --bg-chip: #edf3fb;
+  --border: #dfe7f3;
+  --border-strong: #c7d3e3;
+  --text-primary: #172b4d;
   --text-secondary: #4a5872;
-  --text-muted: #7a879d;
+  --text-muted: #8898aa;
   --text-on-accent: #ffffff;
 
-  /* Ação */
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  /* Ação (azul da marca) */
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
   --accent-soft: #e8f1ff;
-  --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.35);
+  --accent-gradient: linear-gradient(135deg, #3b82f6, #4069ff);
+  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.3);
+
+  /* Cores de status da marca */
+  --color-success: #2dce89;
+  --color-warning: #fb6340;
+  --color-info: #11cdef;
+  --color-danger: #f5365c;
+  --color-whatsapp: #25d366;
+
+  /* Cores de etiqueta e fila (pontos e barras laterais) */
+  --tag-blue: #3b82f6;
+  --tag-green: #2dce89;
+  --tag-orange: #fb6340;
+  --tag-red: #f5365c;
+  --tag-purple: #a855f7;
+  --tag-cyan: #11cdef;
+
+  /* Avatares sem foto: fundo suave + texto forte */
+  --avatar-1-bg: #e8f1ff;
+  --avatar-1-fg: #2563eb;
+  --avatar-2-bg: #e6f9f0;
+  --avatar-2-fg: #15803d;
+  --avatar-3-bg: #fff1e8;
+  --avatar-3-fg: #c2410c;
+  --avatar-4-bg: #f3e8ff;
+  --avatar-4-fg: #7e22ce;
+  --avatar-5-bg: #ffe8ee;
+  --avatar-5-fg: #be123c;
+  --avatar-6-bg: #e0f7fb;
+  --avatar-6-fg: #0e7490;
 
   /* Tons semânticos (badges, alertas) */
-  --tone-neutral-bg: #eef1f6;
+  --tone-neutral-bg: #f0f3f9;
   --tone-neutral-fg: #3f4b60;
-  --tone-info-bg: #e6f2ff;
-  --tone-info-fg: #1747a6;
-  --tone-success-bg: #e5f7ee;
-  --tone-success-fg: #146c43;
-  --tone-warning-bg: #fff3e0;
-  --tone-warning-fg: #8a4b00;
-  --tone-danger-bg: #ffe9ec;
-  --tone-danger-fg: #b0122f;
+  --tone-info-bg: #f0f9ff;
+  --tone-info-fg: #0c4a6e;
+  --tone-success-bg: #f0fdf4;
+  --tone-success-fg: #166534;
+  --tone-warning-bg: #fff7ed;
+  --tone-warning-fg: #92400e;
+  --tone-danger-bg: #fff1f2;
+  --tone-danger-fg: #be123c;
 
-  /* Conversa */
+  /* Conversa (cores próximas às do WhatsApp, para o atendente reconhecer o canal) */
+  --chat-bg: #f6f9fc;
   --bubble-inbound: #ffffff;
-  --bubble-outbound: #dceaff;
-  --bubble-internal: #fff6d9;
-  --bubble-internal-border: #f0d77c;
+  --bubble-outbound: #d9fdd3;
+  --bubble-outbound-text: #111b21;
+  --bubble-internal: #fff7e0;
+  --bubble-internal-border: #f5d77c;
+  --bubble-meta: #667781;
+
+  /* Login */
+  --login-showcase-bg: #0b0b0d;
+  --login-glow-core: rgba(120, 170, 255, 0.95);
+  --login-glow-mid: rgba(59, 130, 246, 0.85);
+  --login-glow-edge: rgba(64, 105, 255, 0.35);
 
   /* Shell */
-  --sidebar-width: 224px;
-  --topbar-height: 56px;
+  --rail-width: 68px;
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --bg-app: #111318;
-  --bg-surface: #1a1d24;
-  --bg-subtle: #20242c;
-  --bg-hover: #262b35;
-  --bg-selected: #1e2d4a;
-  --border: #2c313c;
-  --border-strong: #3c4350;
-  --text-primary: #e8ebf1;
-  --text-secondary: #b0b8c6;
-  --text-muted: #8590a2;
+  --bg-app: #0d0d0f;
+  --bg-surface: #161618;
+  --bg-subtle: #1b1b1f;
+  --bg-hover: #212126;
+  --bg-selected: #1e2534;
+  --bg-chip: #202024;
+  --border: #2c2c31;
+  --border-strong: #3a3a43;
+  --text-primary: #f4f4f6;
+  --text-secondary: #c4c4cb;
+  --text-muted: #9a9aa2;
 
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --accent-soft: #1c2c4a;
-  --focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.45);
+  --accent: #4c8dff;
+  --accent-hover: #78aaff;
+  --accent-soft: #1e2534;
+  --focus-ring: 0 0 0 3px rgba(120, 170, 255, 0.4);
 
-  --tone-neutral-bg: #2a2f39;
-  --tone-neutral-fg: #c5cbd6;
-  --tone-info-bg: #16294a;
-  --tone-info-fg: #93c0ff;
-  --tone-success-bg: #133325;
-  --tone-success-fg: #7fd8a8;
-  --tone-warning-bg: #3a2a12;
-  --tone-warning-fg: #f5c27a;
-  --tone-danger-bg: #3d1820;
-  --tone-danger-fg: #ff9aa9;
+  --avatar-1-bg: #1e2a44;
+  --avatar-1-fg: #93c0ff;
+  --avatar-2-bg: #15291f;
+  --avatar-2-fg: #86efac;
+  --avatar-3-bg: #2e1f14;
+  --avatar-3-fg: #fdba74;
+  --avatar-4-bg: #271a36;
+  --avatar-4-fg: #d8b4fe;
+  --avatar-5-bg: #331a22;
+  --avatar-5-fg: #fda4af;
+  --avatar-6-bg: #132a30;
+  --avatar-6-fg: #67e8f9;
 
-  --bubble-inbound: #232832;
-  --bubble-outbound: #1e3358;
-  --bubble-internal: #3a3218;
-  --bubble-internal-border: #6b5a22;
+  --tone-neutral-bg: #212125;
+  --tone-neutral-fg: #c4c4cb;
+  --tone-info-bg: #1a2028;
+  --tone-info-fg: #7dd3fc;
+  --tone-success-bg: #172018;
+  --tone-success-fg: #86efac;
+  --tone-warning-bg: #221c15;
+  --tone-warning-fg: #fdba74;
+  --tone-danger-bg: #241a1d;
+  --tone-danger-fg: #ff8ea3;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --chat-bg: #111113;
+  --bubble-inbound: #1f1f23;
+  --bubble-outbound: #144d37;
+  --bubble-outbound-text: #e9edef;
+  --bubble-internal: #2e2814;
+  --bubble-internal-border: #5c4d1c;
+  --bubble-meta: #9aa5ab;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 18px 42px rgba(0, 0, 0, 0.55);
 }

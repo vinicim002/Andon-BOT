@@ -1,14 +1,21 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AppShell } from '../components/layout/AppShell';
+import { LoginPage } from '../features/auth/LoginPage';
 import { ContactsPage } from '../features/contacts/ContactsPage';
 import { InboxPage } from '../features/inbox/InboxPage';
 import { PlaceholderPage } from '../features/placeholder/PlaceholderPage';
 import { TicketsPage } from '../features/tickets/TicketsPage';
+import { RequireSession } from './session';
 
 export const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
   {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireSession>
+        <AppShell />
+      </RequireSession>
+    ),
     children: [
       { index: true, element: <Navigate to="/inbox" replace /> },
       { path: 'inbox', element: <InboxPage /> },

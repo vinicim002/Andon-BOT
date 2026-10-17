@@ -15,3 +15,32 @@ export function formatRelative(iso: string) {
   if (hours < 24) return `${hours} h`;
   return formatDate(iso);
 }
+
+// Contagem regressiva "h:mm:ss" (ou "m:ss" abaixo de 1h) até o instante informado.
+export function formatCountdown(targetIso: string, now: number) {
+  const total = Math.max(0, Math.floor((new Date(targetIso).getTime() - now) / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = String(total % 60).padStart(2, '0');
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`;
+}
+
+export function isSameDay(a: string, b: string) {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
+
+export function formatDayLabel(iso: string) {
+  const today = new Date();
+  const day = new Date(iso);
+  if (day.toDateString() === today.toDateString()) return 'Hoje';
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  if (day.toDateString() === yesterday.toDateString()) return 'Ontem';
+  return formatDate(iso);
+}
+
+// Na lista: hora se for hoje, "Ontem", ou a data.
+export function formatListTime(iso: string) {
+  const label = formatDayLabel(iso);
+  return label === 'Hoje' ? formatTime(iso) : label;
+}

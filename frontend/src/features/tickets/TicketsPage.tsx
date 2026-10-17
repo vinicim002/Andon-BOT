@@ -9,6 +9,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  Page,
   PageHeader,
 } from '../../design-system/components';
 import { ticketPriority, ticketStatus } from '../../domain/labels';
@@ -23,7 +24,7 @@ export function TicketsPage() {
   const userName = useMemo(() => new Map(users.data?.map((u) => [u.id, u.name])), [users.data]);
 
   return (
-    <>
+    <Page>
       <PageHeader
         title="Tickets"
         description="Todo ticket tem um protocolo único e imutável."
@@ -66,6 +67,6 @@ export function TicketsPage() {
             </tbody>
           </DataTable>
         ))}
-    </>
+    </Page>
   );
 }

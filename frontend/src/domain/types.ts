@@ -22,18 +22,26 @@ export interface User {
   online: boolean;
 }
 
+export type TagColor = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'cyan';
+
 export interface Tag {
   id: Id;
   name: string;
-  color: string;
+  color: TagColor;
 }
 
 export interface Contact {
   id: Id;
+  // Identificador curto exibido ao atendente (o id interno é UUID).
+  code: string;
   name: string;
   phone: string;
   email?: string;
+  jobTitle?: string;
   organization?: string;
+  // CPF/CNPJ ficam em atributos de CRM; no banco, contact.attributes.
+  cpf?: string;
+  cnpj?: string;
   tags: Tag[];
   createdAt: IsoDateTime;
 }
@@ -48,9 +56,13 @@ export interface ChannelEndpoint {
 export interface OperationalQueue {
   id: Id;
   name: string;
+  color: TagColor;
   routingPolicy: 'round_robin' | 'manual';
   memberIds: Id[];
 }
+
+export type ContentType = 'text' | 'image' | 'audio' | 'video' | 'document' | 'location';
+export type DeliveryStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Conversation {
   id: Id;
@@ -58,11 +70,25 @@ export interface Conversation {
   endpoint: ChannelEndpoint;
   queueId?: Id;
   assigneeId?: Id;
+  // Outros atendentes que participaram (aparecem na lista e na trilha).
+  participantIds: Id[];
   status: ConversationStatus;
   botPaused: boolean;
+  tags: Tag[];
   unreadCount: number;
-  lastMessagePreview: string;
-  lastMessageAt: IsoDateTime;
+  contactTyping: boolean;
+  lastMessage: {
+    preview: string;
+    contentType: ContentType;
+    direction: 'inbound' | 'outbound';
+    deliveryStatus?: DeliveryStatus;
+    at: IsoDateTime;
+  };
+  // WhatsApp só permite mensagem livre até 24h após a última mensagem do cliente.
+  windowExpiresAt?: IsoDateTime;
+  autoResolveAt?: IsoDateTime;
+  // Prazo de primeira resposta; vencido aparece em destaque na lista.
+  slaDueAt?: IsoDateTime;
   ticketId?: Id;
 }
 
@@ -75,8 +101,12 @@ export interface Message {
   direction: MessageDirection;
   senderType: SenderType;
   senderUserId?: Id;
-  body: string;
-  deliveryStatus?: 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
+  contentType: ContentType;
+  body?: string;
+  mediaUrl?: string;
+  forwarded?: boolean;
+  replyTo?: { authorName: string; preview: string; contentType: ContentType };
+  deliveryStatus?: DeliveryStatus;
   createdAt: IsoDateTime;
 }
 

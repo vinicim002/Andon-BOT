@@ -1,133 +1,182 @@
 .shell {
   display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr;
-  grid-template-rows: var(--topbar-height) 1fr;
-  grid-template-areas:
-    'sidebar topbar'
-    'sidebar content';
-  height: 100%;
+  grid-template-columns: var(--rail-width) 1fr;
+  height: 100dvh;
+  background: var(--bg-app);
 }
 
-.sidebar {
-  grid-area: sidebar;
+/* ---------- Trilho de ícones ---------- */
+.rail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-3);
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) 0;
   border-right: 1px solid var(--border);
   background: var(--bg-surface);
 }
 
 .brand {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-1) 0 var(--space-2);
-}
-/* A arte do logo tem texto escuro: no tema escuro ganha uma placa clara para não sumir. */
-.brand img {
-  width: 128px;
-  height: auto;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-md);
-  background: #ffffff;
+  height: 34px;
+  margin-bottom: var(--space-3);
 }
 
-.nav {
+.railGroup {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--border);
+}
+.railGroup:first-of-type {
+  border-top: none;
+  margin-top: 0;
 }
 
-.navLink {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+.railButton {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: none;
   border-radius: var(--radius-md);
+  background: transparent;
   color: var(--text-secondary);
-  font-weight: var(--weight-medium);
-  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
 }
-.navLink svg {
-  width: 18px;
-  height: 18px;
+.railButton svg {
+  width: 21px;
+  height: 21px;
 }
-.navLink:hover {
+.railButton:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
-.active,
-.active:hover {
+.railButton[aria-current='page'],
+.railButton[aria-current='page']:hover {
   background: var(--accent-soft);
   color: var(--accent);
 }
 
-.topbar {
-  grid-area: topbar;
+.railBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 0.625rem;
+  font-weight: var(--weight-bold);
+  box-sizing: content-box;
+}
+
+.railBottom {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--space-6);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-1);
+  margin-top: auto;
+}
+
+.userButton {
+  margin-top: var(--space-2);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: none;
+  cursor: pointer;
+}
+
+/* Menu da conta (Radix) */
+.menu {
+  min-width: 220px;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
 }
-
-.tenant {
-  font-weight: var(--weight-semibold);
-}
-
-.topbarActions {
+.menuHeader {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  padding: var(--space-2);
+  font-size: var(--text-sm);
 }
-
-.user {
+.menuHeader span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.menuSeparator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+.menuItem {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-weight: var(--weight-medium);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+}
+.menuItem svg {
+  width: 16px;
+  height: 16px;
+}
+.menuItem[data-highlighted] {
+  background: var(--bg-hover);
 }
 
 .content {
-  grid-area: content;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: var(--space-6);
 }
 
-/* Telas estreitas: menu vira faixa horizontal no topo. O console é desktop-first. */
-@media (max-width: 860px) {
+/* Telas estreitas: o trilho vira barra inferior, como em apps móveis. */
+@media (max-width: 760px) {
   .shell {
     grid-template-columns: 1fr;
-    grid-template-rows: auto var(--topbar-height) 1fr;
-    grid-template-areas:
-      'sidebar'
-      'topbar'
-      'content';
+    grid-template-rows: 1fr auto;
   }
-  .sidebar {
+  .content {
+    grid-row: 1;
+  }
+  .rail {
+    grid-row: 2;
     flex-direction: row;
-    align-items: center;
+    justify-content: space-around;
     overflow-x: auto;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-1) var(--space-2);
+    border-top: 1px solid var(--border);
     border-right: none;
-    border-bottom: 1px solid var(--border);
   }
   .brand {
     display: none;
   }
-  .nav {
+  .railGroup,
+  .railBottom {
     flex-direction: row;
+    width: auto;
+    padding-top: 0;
+    margin: 0;
+    border-top: none;
   }
-  .navLink span {
-    white-space: nowrap;
-  }
-  .topbar,
-  .content {
-    padding-inline: var(--space-4);
+  .userButton {
+    margin-top: 0;
   }
 }
