@@ -9,9 +9,10 @@ function initialTheme(): Theme {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
   } catch {
-    // Armazenamento indisponível: segue a preferência do sistema.
+    // Armazenamento indisponível: usa o padrão.
   }
-  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  // Claro é o padrão do produto; o escuro só entra se a pessoa escolher no menu.
+  return 'light';
 }
 
 // O index.html aplica o tema antes do primeiro paint; aqui ele só é mantido e alternado.
