@@ -1,95 +1,146 @@
 .screen {
   display: grid;
-  grid-template-columns: minmax(0, 49%) 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 100dvh;
   background: var(--bg-surface);
 }
 
-/* ---------- Vitrine (lado escuro com o brilho da marca) ---------- */
+/* ======================= Vitrine ======================= */
 .showcase {
   position: relative;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 12px;
   overflow: hidden;
+  border-radius: 24px;
   background: var(--login-showcase-bg);
+  isolation: isolate;
 }
 
-/* Esfera de luz azul, no lugar de imagem: escala sem perder nitidez e respeita a paleta. */
-.glow {
+/* Esfera de luz com borda definida, nascendo da parte de baixo como um sol: a logo fica no
+   escuro, acima dela, e não perde contraste (as partes azuis da arte sumiriam sobre o azul). */
+.orb {
   position: absolute;
-  top: 30%;
+  /* Nunca sobe além do texto, mesmo em telas baixas. */
+  top: max(56%, 440px);
   left: 50%;
-  width: min(78vh, 82%);
-  aspect-ratio: 1.15;
+  width: min(130%, 980px);
+  aspect-ratio: 1;
   transform: translateX(-50%);
   border-radius: 50%;
   background:
-    radial-gradient(ellipse 38% 30% at 52% 20%, var(--login-glow-core), transparent 70%),
-    radial-gradient(ellipse 70% 62% at 50% 42%, var(--login-glow-mid), transparent 72%),
-    radial-gradient(ellipse 80% 70% at 50% 62%, var(--login-glow-edge), transparent 75%);
-  filter: blur(22px);
+    radial-gradient(circle at 50% 8%, rgba(190, 220, 255, 0.95) 0%, rgba(120, 180, 255, 0.75) 12%, transparent 34%),
+    radial-gradient(circle at 50% 20%, #3d9bff 0%, #1a6fe8 30%, #1340a8 52%, #0c1d55 70%, transparent 82%);
+  filter: blur(6px);
+  z-index: -2;
 }
 
-/* Granulado sutil sobre o brilho, como na referência. */
+/* Granulado, para a luz ter textura em vez de degradê liso. */
 .grain {
   position: absolute;
   inset: 0;
-  opacity: 0.18;
+  opacity: 0.35;
   mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  z-index: -1;
+}
+
+.showcaseContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  width: min(420px, 90%);
+  transform: translateX(-50%);
+  text-align: center;
 }
 
 .logo {
-  position: relative;
-  width: min(300px, 46%);
+  width: min(280px, 60%, 32vh);
   height: auto;
-  filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.35));
 }
 
-/* ---------- Formulário ---------- */
+.tagline {
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: var(--weight-medium);
+  line-height: 1.45;
+}
+
+/* ======================= Formulário ======================= */
 .formSide {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: var(--space-8) var(--space-6);
+  padding: var(--space-8) var(--space-6) var(--space-6);
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  width: min(384px, 100%);
+  width: min(400px, 100%);
   margin-block: auto;
 }
 
-.mobileLogo {
-  display: none;
-  height: 56px;
+.symbol {
+  height: 64px;
+  align-self: flex-start;
+  margin-bottom: var(--space-6);
 }
 
 .title {
-  margin-bottom: var(--space-1);
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-size: 2rem;
   font-weight: var(--weight-bold);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.subtitle {
+  margin: var(--space-2) 0 var(--space-8);
+  color: var(--text-secondary);
+  font-size: var(--text-lg);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-5);
+}
+.field label {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
 }
 
 .input {
   width: 100%;
-  height: 48px;
-  padding: 0 var(--space-3);
+  height: 50px;
+  padding: 0 var(--space-4);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--bg-surface);
   color: var(--text-primary);
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   transition: border-color 0.12s, box-shadow 0.12s;
 }
 .input::placeholder {
   color: var(--text-muted);
+}
+.input:hover {
+  border-color: var(--text-muted);
 }
 .input:focus {
   border-color: var(--accent);
@@ -101,7 +152,7 @@
   position: relative;
 }
 .passwordField .input {
-  padding-right: 44px;
+  padding-right: 48px;
 }
 .reveal {
   position: absolute;
@@ -109,8 +160,8 @@
   right: 8px;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   transform: translateY(-50%);
   border: none;
   border-radius: var(--radius-sm);
@@ -119,11 +170,22 @@
   cursor: pointer;
 }
 .reveal:hover {
+  background: var(--bg-hover);
   color: var(--text-primary);
 }
 .reveal svg {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
+}
+
+.forgot {
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+.forgot:hover {
+  text-decoration: underline;
 }
 
 .submit {
@@ -131,29 +193,33 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  height: 48px;
+  height: 52px;
+  margin-top: var(--space-2);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--accent-gradient);
   color: var(--text-on-accent);
   font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(64, 105, 255, 0.24);
-  transition: filter 0.12s;
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.3);
+  transition: filter 0.12s, transform 0.12s;
+}
+.submit svg {
+  width: 18px;
+  height: 18px;
 }
 .submit:hover:not(:disabled) {
-  filter: brightness(1.07);
+  filter: brightness(1.08);
+}
+.submit:active:not(:disabled) {
+  transform: translateY(1px);
 }
 .submit:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
+  cursor: progress;
 }
 
 .spin {
-  width: 18px;
-  height: 18px;
   animation: spin 0.9s linear infinite;
 }
 @keyframes spin {
@@ -162,23 +228,13 @@
   }
 }
 
-.forgot {
-  align-self: flex-start;
-  color: var(--text-primary);
-  font-size: var(--text-lg);
-  text-decoration: none;
-}
-.forgot:hover {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
 .error {
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
+  margin-bottom: var(--space-5);
   padding: var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--tone-danger-bg);
   color: var(--tone-danger-fg);
   font-size: var(--text-sm);
@@ -191,10 +247,6 @@
 }
 
 .footer {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
   color: var(--text-muted);
   font-size: var(--text-xs);
 }
@@ -203,15 +255,12 @@
   font-weight: var(--weight-semibold);
 }
 
-@media (max-width: 860px) {
+/* Telas menores: a vitrine sai e o formulário ocupa a tela toda. */
+@media (max-width: 960px) {
   .screen {
     grid-template-columns: 1fr;
   }
   .showcase {
     display: none;
   }
-  .mobileLogo {
-    display: block;
-  }
 }
-
