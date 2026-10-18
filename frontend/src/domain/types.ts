@@ -115,12 +115,48 @@ export type TicketStatus = 'open' | 'in_progress' | 'waiting' | 'resolved' | 'cl
 
 export interface Ticket {
   id: Id;
+  // Gerado na criação e imutável (no banco, trigger impede alteração).
   protocol: string;
   subject: string;
+  description?: string;
   contactId: Id;
   conversationId?: Id;
   assigneeId?: Id;
   priority: TicketPriority;
   status: TicketStatus;
   createdAt: IsoDateTime;
+  updatedAt: IsoDateTime;
 }
+
+// Trilha de auditoria do ticket: cada mudança vira um evento, nada é sobrescrito.
+export type TicketEventType = 'created' | 'status_changed' | 'priority_changed' | 'assigned' | 'comment';
+
+export interface TicketEvent {
+  id: Id;
+  ticketId: Id;
+  type: TicketEventType;
+  actorUserId?: Id;
+  from?: string;
+  to?: string;
+  body?: string;
+  createdAt: IsoDateTime;
+}
+
+// Resposta rápida: acionada por "/atalho" no campo de mensagem. {{nome}} vira o primeiro nome do contato.
+export interface QuickReply {
+  id: Id;
+  shortcut: string;
+  title: string;
+  body: string;
+}
+
+export interface NewTicket {
+  subject: string;
+  description?: string;
+  priority: TicketPriority;
+  contactId: Id;
+  conversationId?: Id;
+  assigneeId?: Id;
+}
+
+export type TransferTarget = { kind: 'user'; userId: Id } | { kind: 'queue'; queueId: Id };

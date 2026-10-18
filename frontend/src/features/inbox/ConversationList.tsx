@@ -56,7 +56,7 @@ export function ConversationList(props: Props) {
               autoFocus
               value={search}
               onChange={(e) => props.onSearchChange(e.target.value)}
-              placeholder="Buscar por nome ou empresa"
+              placeholder="Nome, telefone ou protocolo"
               aria-label="Buscar atendimentos"
             />
             <button

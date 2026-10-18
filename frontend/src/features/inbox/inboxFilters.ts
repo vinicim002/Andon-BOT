@@ -27,3 +27,15 @@ export function matchesFilter(c: Conversation, filter: InboxFilter, meId: Id) {
       return true;
   }
 }
+
+// Busca por nome, empresa, telefone (só dígitos, ignora máscara) ou protocolo do ticket.
+export function matchesSearch(c: Conversation, term: string, protocol?: string) {
+  const text = term.trim().toLowerCase();
+  if (!text) return true;
+  const digits = text.replace(/\D/g, '');
+  return (
+    c.contact.name.toLowerCase().includes(text) ||
+    Boolean(c.contact.organization?.toLowerCase().includes(text)) ||
+    (digits.length >= 3 && (c.contact.phone.replace(/\D/g, '').includes(digits) || Boolean(protocol?.includes(digits))))
+  );
+}

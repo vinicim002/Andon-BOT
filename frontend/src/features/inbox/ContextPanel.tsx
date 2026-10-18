@@ -1,25 +1,31 @@
 import { useState, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { DropdownMenu } from 'radix-ui';
-import { Building2, ChevronDown, ChevronRight, Copy, Link2, Plus, Timer } from 'lucide-react';
+import { Building2, ChevronDown, ChevronRight, Copy, Link2, Plus, Tag as TagIcon, Ticket as TicketIcon, Timer } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { Avatar, Badge, Button, EmptyState, LoadingState, TagChip } from '../../design-system/components';
 import { WhatsAppIcon } from '../../design-system/icons';
+import { useToast } from '../../design-system/useToast';
 import { ticketStatus } from '../../domain/labels';
-import type { Conversation, OperationalQueue, Tag, User } from '../../domain/types';
+import type { Conversation, OperationalQueue, Tag, Ticket, User } from '../../domain/types';
 import { cx } from '../../lib/cx';
 import { formatCountdown, formatDate } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
+import { EditContactDialog } from './EditContactDialog';
+import { NewTagDialog } from './NewTagDialog';
 import s from './Inbox.module.css';
 
 type Props = {
   conversation: Conversation;
   queues: OperationalQueue[];
   users: User[];
-  onTagsChange: (tags: Tag[]) => void;
+  ticket?: Ticket;
+  onTagsChange: (tags: Tag[], message: string) => void;
+  onOpenTicket: () => void;
 };
 
-export function ContextPanel({ conversation, queues, users, onTagsChange }: Props) {
+export function ContextPanel(props: Props) {
   const [tab, setTab] = useState<'about' | 'history'>('about');
 
   return (
@@ -33,24 +39,20 @@ export function ContextPanel({ conversation, queues, users, onTagsChange }: Prop
         </button>
       </div>
 
-      {tab === 'about' ? (
-        <About conversation={conversation} queues={queues} users={users} onTagsChange={onTagsChange} />
-      ) : (
-        <History contactId={conversation.contact.id} />
-      )}
+      {tab === 'about' ? <About {...props} /> : <History contactId={props.conversation.contact.id} />}
     </aside>
   );
 }
 
-function About({ conversation: c, queues, users, onTagsChange }: Props) {
+function About({ conversation: c, queues, users, ticket, onTagsChange, onOpenTicket }: Props) {
   const { contact } = c;
+  const toast = useToast();
   const now = useNow();
-  const tickets = useQuery(api.tickets);
-  const ticket = tickets.data?.find((t) => t.id === c.ticketId);
   const assignee = users.find((u) => u.id === c.assigneeId);
   const queue = queues.find((q) => q.id === c.queueId);
-  const [copied, setCopied] = useState(false);
   const tagCatalog = useQuery(api.tags).data ?? [];
+  const [copied, setCopied] = useState(false);
+  const [dialog, setDialog] = useState<'contact' | 'tag' | null>(null);
 
   // Resumo que o atendente cola em ferramentas de IA; com a IA governada, vira contexto automático.
   const copyAiContext = async () => {
@@ -58,6 +60,7 @@ function About({ conversation: c, queues, users, onTagsChange }: Props) {
       `Contato: ${contact.name}${contact.organization ? ` (${contact.organization})` : ''}`,
       contact.jobTitle && `Cargo: ${contact.jobTitle}`,
       `Etiquetas: ${c.tags.map((t) => t.name).join(', ') || 'nenhuma'}`,
+      ticket && `Ticket: #${ticket.protocol} — ${ticket.subject}`,
       `Última mensagem: ${c.lastMessage.preview}`,
     ]
       .filter(Boolean)
@@ -67,7 +70,7 @@ function About({ conversation: c, queues, users, onTagsChange }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Sem permissão de área de transferência: nada a fazer na demonstração.
+      toast({ message: 'O navegador bloqueou a cópia.', tone: 'error' });
     }
   };
 
@@ -86,7 +89,9 @@ function About({ conversation: c, queues, users, onTagsChange }: Props) {
                 {[contact.jobTitle, contact.organization].filter(Boolean).join(' • ')}
               </span>
             )}
-            <Button className={s.editContact}>Editar contato</Button>
+            <Button className={s.editContact} onClick={() => setDialog('contact')}>
+              Editar contato
+            </Button>
           </div>
         </div>
         <dl className={s.fields}>
@@ -108,24 +113,32 @@ function About({ conversation: c, queues, users, onTagsChange }: Props) {
       <Card title="Etiquetas" count={c.tags.length} collapsible>
         <div className={s.tagEditor}>
           {c.tags.map((tag) => (
-            <TagChip key={tag.id} color={tag.color} onRemove={() => onTagsChange(c.tags.filter((t) => t.id !== tag.id))}>
+            <TagChip
+              key={tag.id}
+              color={tag.color}
+              onRemove={() => onTagsChange(c.tags.filter((t) => t.id !== tag.id), `Etiqueta “${tag.name}” removida.`)}
+            >
               {tag.name}
             </TagChip>
           ))}
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <button type="button" className={s.addTag} aria-label="Adicionar etiqueta" disabled={unusedTags.length === 0}>
+              <button type="button" className={s.addTag} aria-label="Adicionar etiqueta">
                 <Plus />
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content className={s.menu} align="start" sideOffset={4}>
                 {unusedTags.map((tag) => (
-                  <DropdownMenu.Item key={tag.id} className={s.menuItem} onSelect={() => onTagsChange([...c.tags, tag])}>
+                  <DropdownMenu.Item key={tag.id} className={s.menuItem} onSelect={() => onTagsChange([...c.tags, tag], `Etiqueta “${tag.name}” aplicada.`)}>
                     <span className={cx(s.queueDot, s[`queue-${tag.color}`])} aria-hidden />
                     {tag.name}
                   </DropdownMenu.Item>
                 ))}
+                {unusedTags.length > 0 && <DropdownMenu.Separator className={s.menuSeparator} />}
+                <DropdownMenu.Item className={s.menuItem} onSelect={() => setDialog('tag')}>
+                  <TagIcon aria-hidden /> Nova etiqueta…
+                </DropdownMenu.Item>
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
@@ -139,7 +152,17 @@ function About({ conversation: c, queues, users, onTagsChange }: Props) {
               {copied ? 'Copiado' : 'Copiar'}
             </Button>
           </Field>
-          <Field label="Protocolo">{ticket ? `#${ticket.protocol}` : 'Sem ticket'}</Field>
+          <Field label="Protocolo">
+            {ticket ? (
+              <Link to={`/tickets/${ticket.id}`} className={s.protocolLink}>
+                #{ticket.protocol}
+              </Link>
+            ) : (
+              <Button className={s.inlineButton} icon={<TicketIcon />} onClick={onOpenTicket}>
+                Abrir ticket
+              </Button>
+            )}
+          </Field>
           <Field label="Janela de conversa">
             {c.windowExpiresAt && <Countdown target={c.windowExpiresAt} now={now} total={24 * 3600} />}
           </Field>
@@ -176,6 +199,16 @@ function About({ conversation: c, queues, users, onTagsChange }: Props) {
           </span>
         </div>
       </Card>
+
+      <EditContactDialog open={dialog === 'contact'} onOpenChange={(open) => setDialog(open ? 'contact' : null)} contact={contact} />
+      <NewTagDialog
+        open={dialog === 'tag'}
+        onOpenChange={(open) => setDialog(open ? 'tag' : null)}
+        onCreated={(tag) => {
+          setDialog(null);
+          if (!c.tags.some((t) => t.id === tag.id)) onTagsChange([...c.tags, tag], `Etiqueta “${tag.name}” criada e aplicada.`);
+        }}
+      />
     </div>
   );
 }
@@ -196,20 +229,24 @@ function History({ contactId }: { contactId: string }) {
   const tickets = useQuery(() => api.ticketsByContact(contactId), contactId);
   if (tickets.status === 'loading') return <LoadingState />;
   if (tickets.status === 'error' || tickets.data.length === 0) {
-    return <EmptyState title="Sem histórico" description="Nenhum atendimento anterior com este contato." />;
+    return <EmptyState title="Sem histórico" description="Nenhum ticket anterior com este contato." />;
   }
   return (
     <ul className={s.history}>
-      {tickets.data.map((t) => (
-        <li key={t.id} className={s.historyItem}>
-          <span className={s.historyTop}>
-            <span className={s.mono}>#{t.protocol}</span>
-            <Badge tone={ticketStatus[t.status].tone}>{ticketStatus[t.status].label}</Badge>
-          </span>
-          <strong>{t.subject}</strong>
-          <span className={s.historyDate}>{formatDate(t.createdAt)}</span>
-        </li>
-      ))}
+      {[...tickets.data]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map((t) => (
+          <li key={t.id}>
+            <Link to={`/tickets/${t.id}`} className={s.historyItem}>
+              <span className={s.historyTop}>
+                <span className={s.mono}>#{t.protocol}</span>
+                <Badge tone={ticketStatus[t.status].tone}>{ticketStatus[t.status].label}</Badge>
+              </span>
+              <strong>{t.subject}</strong>
+              <span className={s.historyDate}>{formatDate(t.createdAt)}</span>
+            </Link>
+          </li>
+        ))}
     </ul>
   );
 }

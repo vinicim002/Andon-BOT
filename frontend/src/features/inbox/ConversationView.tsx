@@ -1,45 +1,29 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
+import { Link } from 'react-router';
 import { DropdownMenu } from 'radix-ui';
-import {
-  AlertTriangle,
-  ArrowRightLeft,
-  Bot,
-  BotOff,
-  Camera,
-  CheckCircle2,
-  Forward,
-  Mic,
-  MoreHorizontal,
-  Paperclip,
-  Phone,
-  RotateCcw,
-  Send,
-  Smile,
-  Ticket,
-  Type,
-  UserCheck,
-  Zap,
-} from 'lucide-react';
+import { ArrowRightLeft, Bot, BotOff, Camera, CheckCircle2, Forward, MoreHorizontal, Phone, RotateCcw, Ticket, UserCheck } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { BrandSymbol } from '../../design-system/BrandSymbol';
 import { Avatar, Button, LoadingState, Tooltip } from '../../design-system/components';
 import { WhatsAppIcon } from '../../design-system/icons';
-import type { Conversation, Id, Message, OperationalQueue, User } from '../../domain/types';
+import type { Conversation, Id, Message, OperationalQueue, QuickReply, User } from '../../domain/types';
 import { cx } from '../../lib/cx';
 import { formatDayLabel, formatTime, isSameDay } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
+import { Composer } from './Composer';
 import { DeliveryIcon } from './ConversationList';
 import s from './Inbox.module.css';
 
 type Props = {
   conversation: Conversation;
-  extraMessages: Message[];
   queues: OperationalQueue[];
   users: User[];
   me: User;
+  quickReplies: QuickReply[];
   onAssign: () => void;
-  onTransfer: (queueId: Id) => void;
+  onTransfer: () => void;
+  onOpenTicket: () => void;
   onToggleBot: () => void;
   onResolve: () => void;
   onReopen: () => void;
@@ -47,9 +31,9 @@ type Props = {
 };
 
 export function ConversationView(props: Props) {
-  const { conversation: c, extraMessages, queues, users, me } = props;
+  const { conversation: c, queues, users, me } = props;
   const loaded = useQuery(() => api.messages(c.id), c.id);
-  const messages = [...(loaded.data ?? []), ...extraMessages];
+  const messages = loaded.data ?? [];
   const userById = (id?: Id) => users.find((u) => u.id === id);
   const assignee = userById(c.assigneeId);
   const queue = queues.find((q) => q.id === c.queueId);
@@ -110,28 +94,25 @@ export function ConversationView(props: Props) {
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
-                <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger className={s.menuItem}>
-                    <ArrowRightLeft aria-hidden /> Transferir para fila
-                  </DropdownMenu.SubTrigger>
-                  <DropdownMenu.Portal>
-                    <DropdownMenu.SubContent className={s.menu} sideOffset={6}>
-                      {queues.map((q) => (
-                        <DropdownMenu.Item key={q.id} className={s.menuItem} disabled={q.id === c.queueId} onSelect={() => props.onTransfer(q.id)}>
-                          <span className={cx(s.queueDot, s[`queue-${q.color}`])} aria-hidden />
-                          {q.name}
-                        </DropdownMenu.Item>
-                      ))}
-                    </DropdownMenu.SubContent>
-                  </DropdownMenu.Portal>
-                </DropdownMenu.Sub>
-                <DropdownMenu.Item className={s.menuItem} onSelect={props.onToggleBot}>
+                <DropdownMenu.Item className={s.menuItem} disabled={resolved} onSelect={props.onTransfer}>
+                  <ArrowRightLeft aria-hidden /> Transferir…
+                </DropdownMenu.Item>
+                <DropdownMenu.Item className={s.menuItem} disabled={resolved} onSelect={props.onToggleBot}>
                   {c.botPaused ? <Bot aria-hidden /> : <BotOff aria-hidden />}
                   {c.botPaused ? 'Retomar bot' : 'Pausar bot'}
                 </DropdownMenu.Item>
-                <DropdownMenu.Item className={s.menuItem} disabled={Boolean(c.ticketId)}>
-                  <Ticket aria-hidden /> {c.ticketId ? 'Ticket já aberto' : 'Abrir ticket'}
-                </DropdownMenu.Item>
+                <DropdownMenu.Separator className={s.menuSeparator} />
+                {c.ticketId ? (
+                  <DropdownMenu.Item className={s.menuItem} asChild>
+                    <Link to={`/tickets/${c.ticketId}`}>
+                      <Ticket aria-hidden /> Ver ticket
+                    </Link>
+                  </DropdownMenu.Item>
+                ) : (
+                  <DropdownMenu.Item className={s.menuItem} onSelect={props.onOpenTicket}>
+                    <Ticket aria-hidden /> Abrir ticket…
+                  </DropdownMenu.Item>
+                )}
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
           </DropdownMenu.Root>
@@ -170,7 +151,7 @@ export function ConversationView(props: Props) {
           </Button>
         </div>
       ) : (
-        <Composer onSend={props.onSend} windowClosed={windowClosed} />
+        <Composer onSend={props.onSend} windowClosed={windowClosed} quickReplies={props.quickReplies} contactName={c.contact.name} />
       )}
     </section>
   );
@@ -219,68 +200,6 @@ function MessageRow({ message: m, author, onMediaLoad }: { message: Message; aut
         ) : (
           author && <Avatar name={author.name} size={26} />
         ))}
-    </div>
-  );
-}
-
-function Composer({ onSend, windowClosed }: { onSend: (body: string, internal: boolean) => void; windowClosed: boolean }) {
-  const [body, setBody] = useState('');
-  const [internal, setInternal] = useState(false);
-  const blocked = windowClosed && !internal;
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const text = body.trim();
-    if (!text || blocked) return;
-    onSend(text, internal);
-    setBody('');
-  };
-
-  return (
-    <div className={s.composerArea}>
-      <form className={cx(s.composer, internal && s.composerInternal)} onSubmit={submit}>
-        <div className={s.composerTabs} role="tablist" aria-label="Tipo de mensagem">
-          <button type="button" role="tab" aria-selected={!internal} className={cx(s.composerTab, !internal && s.composerTabActive)} onClick={() => setInternal(false)}>
-            Mensagem
-          </button>
-          <button type="button" role="tab" aria-selected={internal} className={cx(s.composerTab, internal && s.composerTabActive)} onClick={() => setInternal(true)}>
-            Anotações internas
-          </button>
-        </div>
-
-        {blocked && (
-          <p className={s.windowWarning}>
-            <AlertTriangle aria-hidden /> A janela de 24h do WhatsApp terminou. Envie um modelo aprovado para retomar a conversa.
-          </p>
-        )}
-
-        <label htmlFor="composer" className="visually-hidden">
-          {internal ? 'Anotação interna' : 'Mensagem'}
-        </label>
-        <textarea
-          id="composer"
-          rows={3}
-          value={body}
-          disabled={blocked}
-          placeholder={internal ? 'Escreva uma anotação visível só para a equipe. Use @ para mencionar.' : 'Digite / para adicionar uma Mensagem Pronta'}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) submit(e);
-          }}
-        />
-
-        <div className={s.composerToolbar}>
-          <Button variant="ghost" iconOnlyLabel="Mensagens prontas" icon={<Zap />} />
-          <Button variant="ghost" iconOnlyLabel="Emoji" icon={<Smile />} />
-          <Button variant="ghost" iconOnlyLabel="Formatação" icon={<Type />} />
-          <Button variant="ghost" iconOnlyLabel="Anexar arquivo" icon={<Paperclip />} disabled={internal} />
-          <Button variant="ghost" iconOnlyLabel="Gravar áudio" icon={<Mic />} disabled={internal} />
-          <Button type="submit" variant="ghost" className={s.sendButton} iconOnlyLabel="Enviar" icon={<Send />} disabled={!body.trim() || blocked} />
-        </div>
-      </form>
-      <p className={s.composerHint}>
-        Aperte <strong>Enter</strong> para enviar ou <strong>Shift+Enter</strong> para quebrar a linha.
-      </p>
     </div>
   );
 }

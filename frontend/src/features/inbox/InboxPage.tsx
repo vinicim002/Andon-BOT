@@ -1,52 +1,73 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { useSession } from '../../app/useSession';
 import { EmptyState, ErrorState, LoadingState } from '../../design-system/components';
-import type { Conversation, Id, Message, OperationalQueue, Tag, User } from '../../domain/types';
+import { useToast } from '../../design-system/useToast';
+import type { Conversation, Id, OperationalQueue, QuickReply, Tag, Ticket, TransferTarget, User } from '../../domain/types';
+import { NewTicketDialog } from '../tickets/NewTicketDialog';
 import { ContextPanel } from './ContextPanel';
 import { ConversationList } from './ConversationList';
 import { ConversationView } from './ConversationView';
-import { matchesFilter, statusTabOf, type InboxFilter, type StatusTab } from './inboxFilters';
+import { matchesFilter, matchesSearch, statusTabOf, type InboxFilter, type StatusTab } from './inboxFilters';
+import { TransferDialog } from './TransferDialog';
 import s from './Inbox.module.css';
 
-// Ações aqui só alteram o estado local: o objetivo é descobrir o fluxo do atendente antes de
-// definir os endpoints. Cada ação corresponde a um futuro comando na API + evento de conversa.
 export function InboxPage() {
   const { user } = useSession();
-  const loaded = useQuery(() => Promise.all([api.conversations(), api.queues(), api.users()]));
+  const conversations = useQuery(api.conversations);
+  const reference = useQuery(() => Promise.all([api.queues(), api.users(), api.tickets(), api.quickReplies()]));
 
-  if (loaded.status === 'loading') return <LoadingState />;
-  if (loaded.status === 'error') return <ErrorState error={loaded.error} />;
+  if (conversations.status === 'loading' || reference.status === 'loading') return <LoadingState />;
+  if (conversations.status === 'error') return <ErrorState error={conversations.error} />;
+  if (reference.status === 'error') return <ErrorState error={reference.error} />;
 
-  const [conversations, queues, users] = loaded.data;
+  const [queues, users, tickets, quickReplies] = reference.data;
   const me = users.find((u) => u.id === user?.id) ?? users[0];
-  return <Inbox initial={conversations} queues={queues} users={users} me={me} />;
+  return (
+    <Inbox conversations={conversations.data} queues={queues} users={users} tickets={tickets} quickReplies={quickReplies} me={me} />
+  );
 }
 
-type InboxProps = { initial: Conversation[]; queues: OperationalQueue[]; users: User[]; me: User };
+type InboxProps = {
+  conversations: Conversation[];
+  queues: OperationalQueue[];
+  users: User[];
+  tickets: Ticket[];
+  quickReplies: QuickReply[];
+  me: User;
+};
 
-function Inbox({ initial, queues, users, me }: InboxProps) {
-  const [selectedId, setSelectedId] = useState<Id | undefined>(initial.find((c) => statusTabOf(c) === 'open')?.id);
-  // Abrir a conversa marca as mensagens como lidas (inclusive a aberta por padrão).
-  const [conversations, setConversations] = useState(() =>
-    initial.map((c) => (c.id === selectedId ? { ...c, unreadCount: 0 } : c)),
-  );
-  const [filter, setFilter] = useState<InboxFilter>('all');
-  const [tab, setTab] = useState<StatusTab>('open');
-  const [search, setSearch] = useState('');
-  const [sentMessages, setSentMessages] = useState<Message[]>([]);
+function Inbox({ conversations, queues, users, tickets, quickReplies, me }: InboxProps) {
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
 
+  // A conversa aberta fica na URL (?c=), para links vindos de outras telas (ex.: ticket).
+  const selectedId = params.get('c') ?? conversations.find((c) => statusTabOf(c) === 'open')?.id;
   const selected = conversations.find((c) => c.id === selectedId);
 
-  const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    return conversations.filter(
-      (c) =>
-        matchesFilter(c, filter, me.id) &&
-        (!term || c.contact.name.toLowerCase().includes(term) || c.contact.organization?.toLowerCase().includes(term)),
-    );
-  }, [conversations, filter, search, me.id]);
+  const [filter, setFilter] = useState<InboxFilter>('all');
+  const [tabChoice, setTab] = useState<StatusTab>('open');
+  const [search, setSearch] = useState('');
+  const [dialog, setDialog] = useState<'transfer' | 'ticket' | null>(null);
+
+  // Ao chegar por link, mostra a aba onde a conversa está.
+  const tab = params.get('c') && selected ? statusTabOf(selected) : tabChoice;
+
+  const protocolByConversation = useMemo(
+    () => new Map(tickets.filter((t) => t.conversationId).map((t) => [t.conversationId as Id, t.protocol])),
+    [tickets],
+  );
+
+  const filtered = useMemo(
+    () =>
+      conversations.filter(
+        (c) => matchesFilter(c, filter, me.id) && matchesSearch(c, search, protocolByConversation.get(c.id)),
+      ),
+    [conversations, filter, search, me.id, protocolByConversation],
+  );
 
   const counts = useMemo(() => {
     const result: Record<StatusTab, number> = { bot: 0, pending: 0, open: 0, resolved: 0 };
@@ -58,39 +79,30 @@ function Inbox({ initial, queues, users, me }: InboxProps) {
     .filter((c) => statusTabOf(c) === tab)
     .sort((a, b) => b.lastMessage.at.localeCompare(a.lastMessage.at));
 
-  const update = (id: Id, patch: Partial<Conversation>) =>
-    setConversations((list) => list.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const select = (id: Id) => setParams({ c: id });
 
-  const select = (id: Id) => {
-    setSelectedId(id);
-    update(id, { unreadCount: 0 });
+  // Conversa aberta na tela conta como lida — inclusive a aberta por padrão ou por link.
+  const unreadOpen = selected && selected.unreadCount > 0 ? selected.id : undefined;
+  useEffect(() => {
+    if (unreadOpen) void api.conversation.markRead(unreadOpen);
+  }, [unreadOpen]);
+
+  const changeTab = (next: StatusTab) => {
+    setTab(next);
+    if (params.get('c')) setParams({});
   };
 
-  const send = (body: string, internal: boolean) => {
-    if (!selected) return;
-    const now = new Date().toISOString();
-    setSentMessages((list) => [
-      ...list,
-      {
-        id: crypto.randomUUID(),
-        conversationId: selected.id,
-        direction: internal ? 'internal' : 'outbound',
-        senderType: 'user',
-        senderUserId: me.id,
-        contentType: 'text',
-        body,
-        deliveryStatus: internal ? undefined : 'sent',
-        createdAt: now,
-      },
-    ]);
-    if (!internal) {
-      update(selected.id, {
-        lastMessage: { preview: body, contentType: 'text', direction: 'outbound', deliveryStatus: 'sent', at: now },
-      });
+  // Executa a ação e mostra o aviso; em erro, mostra a mensagem da API.
+  const run = async (action: Promise<unknown>, success: string) => {
+    try {
+      await action;
+      toast({ message: success });
+    } catch (error) {
+      toast({ message: error instanceof Error ? error.message : 'Não foi possível concluir.', tone: 'error' });
     }
   };
 
-  const setTags = (tags: Tag[]) => selected && update(selected.id, { tags });
+  const userName = (id: Id) => users.find((u) => u.id === id)?.name ?? '';
 
   return (
     <div className={s.inbox}>
@@ -98,7 +110,7 @@ function Inbox({ initial, queues, users, me }: InboxProps) {
         conversations={visible}
         counts={counts}
         tab={tab}
-        onTabChange={setTab}
+        onTabChange={changeTab}
         filter={filter}
         onFilterChange={setFilter}
         search={search}
@@ -113,18 +125,58 @@ function Inbox({ initial, queues, users, me }: InboxProps) {
           <ConversationView
             key={selected.id}
             conversation={selected}
-            extraMessages={sentMessages.filter((m) => m.conversationId === selected.id)}
             queues={queues}
             users={users}
             me={me}
-            onAssign={() => update(selected.id, { assigneeId: me.id, status: 'in_progress', botPaused: true })}
-            onTransfer={(queueId) => update(selected.id, { queueId, assigneeId: undefined, status: 'queued' })}
-            onToggleBot={() => update(selected.id, { botPaused: !selected.botPaused })}
-            onResolve={() => update(selected.id, { status: 'resolved' })}
-            onReopen={() => update(selected.id, { status: 'in_progress', assigneeId: me.id })}
-            onSend={send}
+            quickReplies={quickReplies}
+            onAssign={() => run(api.conversation.assign(selected.id, me.id), 'Atendimento assumido.')}
+            onTransfer={() => setDialog('transfer')}
+            onOpenTicket={() => setDialog('ticket')}
+            onToggleBot={() =>
+              run(api.conversation.setBotPaused(selected.id, !selected.botPaused, me.id), selected.botPaused ? 'Bot retomado.' : 'Bot pausado.')
+            }
+            onResolve={() => run(api.conversation.resolve(selected.id, me.id), 'Atendimento resolvido.')}
+            onReopen={() => run(api.conversation.reopen(selected.id, me.id), 'Atendimento reaberto.')}
+            onSend={(body, internal) =>
+              internal
+                ? run(api.conversation.send(selected.id, body, true, me.id), 'Anotação salva. Só a equipe vê.')
+                : api.conversation.send(selected.id, body, false, me.id).catch(() => toast({ message: 'Falha ao enviar a mensagem.', tone: 'error' }))
+            }
           />
-          <ContextPanel key={`ctx-${selected.id}`} conversation={selected} queues={queues} users={users} onTagsChange={setTags} />
+          <ContextPanel
+            key={`ctx-${selected.id}`}
+            conversation={selected}
+            queues={queues}
+            users={users}
+            ticket={tickets.find((t) => t.id === selected.ticketId)}
+            onTagsChange={(tags: Tag[], message: string) => run(api.conversation.setTags(selected.id, tags), message)}
+            onOpenTicket={() => setDialog('ticket')}
+          />
+
+          <TransferDialog
+            open={dialog === 'transfer'}
+            onOpenChange={(open) => setDialog(open ? 'transfer' : null)}
+            conversation={selected}
+            users={users}
+            queues={queues}
+            me={me}
+            onConfirm={(target: TransferTarget, note) => {
+              setDialog(null);
+              const destination = target.kind === 'user' ? userName(target.userId) : `fila ${queues.find((q) => q.id === target.queueId)?.name}`;
+              return run(api.conversation.transfer(selected.id, target, note, me.id), `Atendimento transferido para ${destination}.`);
+            }}
+          />
+          <NewTicketDialog
+            open={dialog === 'ticket'}
+            onOpenChange={(open) => setDialog(open ? 'ticket' : null)}
+            conversation={selected}
+            users={users}
+            me={me}
+            onCreated={(ticket) => {
+              setDialog(null);
+              toast({ message: `Ticket #${ticket.protocol} aberto.`, action: { label: 'Ver ticket', onClick: () => navigate(`/tickets/${ticket.id}`) } });
+            }}
+          />
         </>
       ) : (
         <div className={s.noSelection}>

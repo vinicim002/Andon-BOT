@@ -6,8 +6,10 @@ import type {
   Conversation,
   Message,
   OperationalQueue,
+  QuickReply,
   Tag,
   Ticket,
+  TicketEvent,
   User,
 } from '../domain/types';
 
@@ -130,8 +132,29 @@ export const messages: Message[] = [
 ];
 
 export const tickets: Ticket[] = [
-  { id: 'k1', protocol: '2026101700001', subject: 'Coleta de 12 paletes Contagem → Recife', contactId: 'c1', conversationId: 'v2', assigneeId: 'u1', priority: 'high', status: 'in_progress', createdAt: minutesAgo(38) },
-  { id: 'k2', protocol: '2026101700002', subject: 'Avaria na mercadoria recebida', contactId: 'c2', conversationId: 'v3', assigneeId: 'u1', priority: 'urgent', status: 'waiting', createdAt: minutesAgo(29) },
-  { id: 'k3', protocol: '2026101600014', subject: 'Segunda via de boleto', contactId: 'c3', assigneeId: 'u3', priority: 'low', status: 'resolved', createdAt: minutesAgo(60 * 26) },
-  { id: 'k4', protocol: '2026100900007', subject: 'Cotação de frete fracionado', contactId: 'c1', assigneeId: 'u2', priority: 'normal', status: 'closed', createdAt: minutesAgo(60 * 24 * 8) },
+  { id: 'k1', protocol: '2026101700001', subject: 'Coleta de 12 paletes Contagem → Recife', description: 'Cliente precisa da coleta amanhã. Confirmar carreta e gerar CT-e.', contactId: 'c1', conversationId: 'v2', assigneeId: 'u1', priority: 'high', status: 'in_progress', createdAt: minutesAgo(38), updatedAt: minutesAgo(20) },
+  { id: 'k2', protocol: '2026101700002', subject: 'Avaria na mercadoria recebida', description: 'Duas caixas chegaram amassadas. Aguardando fotos e nota fiscal.', contactId: 'c2', conversationId: 'v3', assigneeId: 'u1', priority: 'urgent', status: 'waiting', createdAt: minutesAgo(29), updatedAt: minutesAgo(25) },
+  { id: 'k3', protocol: '2026101600014', subject: 'Segunda via de boleto', contactId: 'c3', assigneeId: 'u3', priority: 'low', status: 'resolved', createdAt: minutesAgo(60 * 26), updatedAt: minutesAgo(60 * 25) },
+  { id: 'k4', protocol: '2026100900007', subject: 'Cotação de frete fracionado', contactId: 'c1', assigneeId: 'u2', priority: 'normal', status: 'closed', createdAt: minutesAgo(60 * 24 * 8), updatedAt: minutesAgo(60 * 24 * 7) },
+];
+
+export const ticketEvents: TicketEvent[] = [
+  { id: 'te1', ticketId: 'k1', type: 'created', actorUserId: 'u1', createdAt: minutesAgo(38) },
+  { id: 'te2', ticketId: 'k1', type: 'status_changed', actorUserId: 'u1', from: 'open', to: 'in_progress', createdAt: minutesAgo(36) },
+  { id: 'te3', ticketId: 'k1', type: 'comment', actorUserId: 'u2', body: 'Carreta confirmada para amanhã às 8h.', createdAt: minutesAgo(20) },
+  { id: 'te4', ticketId: 'k2', type: 'created', actorUserId: 'u1', createdAt: minutesAgo(29) },
+  { id: 'te5', ticketId: 'k2', type: 'priority_changed', actorUserId: 'u1', from: 'high', to: 'urgent', createdAt: minutesAgo(28) },
+  { id: 'te6', ticketId: 'k2', type: 'status_changed', actorUserId: 'u1', from: 'open', to: 'waiting', createdAt: minutesAgo(25) },
+  { id: 'te7', ticketId: 'k3', type: 'created', actorUserId: 'u3', createdAt: minutesAgo(60 * 26) },
+  { id: 'te8', ticketId: 'k3', type: 'status_changed', actorUserId: 'u3', from: 'open', to: 'resolved', createdAt: minutesAgo(60 * 25) },
+  { id: 'te9', ticketId: 'k4', type: 'created', actorUserId: 'u2', createdAt: minutesAgo(60 * 24 * 8) },
+  { id: 'te10', ticketId: 'k4', type: 'status_changed', actorUserId: 'u2', from: 'open', to: 'closed', createdAt: minutesAgo(60 * 24 * 7) },
+];
+
+export const quickReplies: QuickReply[] = [
+  { id: 'r1', shortcut: 'saudacao', title: 'Saudação', body: 'Olá, {{nome}}! Tudo bem? Sou da equipe de atendimento e vou te ajudar por aqui.' },
+  { id: 'r2', shortcut: 'aguarde', title: 'Pedir um momento', body: '{{nome}}, só um instante enquanto verifico isso para você.' },
+  { id: 'r3', shortcut: 'coleta', title: 'Dados para coleta', body: 'Para agendar a coleta, me envie: endereço completo, quantidade de volumes, peso aproximado e data desejada.' },
+  { id: 'r4', shortcut: 'nf', title: 'Solicitar nota fiscal', body: 'Pode me enviar a nota fiscal da mercadoria (PDF ou foto legível)?' },
+  { id: 'r5', shortcut: 'encerrar', title: 'Encerramento', body: 'Fico à disposição, {{nome}}! Se precisar de algo, é só chamar por aqui.' },
 ];
