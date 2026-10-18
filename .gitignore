@@ -37,6 +37,11 @@ credentials*.json
 secrets/
 
 # --- Dados locais ---
+# Arquivos compactados (backups locais, exportações) nunca entram no repositório.
+*.zip
+*.tar.gz
+*.7z
+*.rar
 *.sql.gz
 *.dump
 *.backup
