@@ -23,7 +23,7 @@ export const roles: Role[] = [
     name: 'Administrador',
     description: 'Acesso total, inclusive usuários, papéis e configurações.',
     permissions: [
-      'conversations.view_all', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
+      'conversations.view_all', 'conversations.take_over', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
       'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies', 'settings.users',
     ],
     system: true,
@@ -33,7 +33,7 @@ export const roles: Role[] = [
     name: 'Supervisor',
     description: 'Acompanha todos os atendimentos e cuida das filas e respostas rápidas.',
     permissions: [
-      'conversations.view_all', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
+      'conversations.view_all', 'conversations.take_over', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
       'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies',
     ],
     system: false,
@@ -54,7 +54,7 @@ export const users: User[] = [
   { id: 'u4', name: 'Diego Rocha', email: 'diego@exemplo.com', roleId: 'r-agent', status: 'active', availability: 'paused', pauseReason: 'Almoço', lastSeenAt: minutesAgo(25) },
   {
     id: 'u5', name: 'Elisa Martins', email: 'elisa@exemplo.com', roleId: 'r-agent', status: 'invited', availability: 'offline',
-    invite: { token: 'demo-convite-elisa', expiresAt: minutesFromNow(60 * 24 * 6), invitedBy: 'u1' },
+    invite: { token: 'demo-convite-elisa', expiresAt: minutesFromNow(60 * 24 * 6), invitedBy: 'u1', sentAt: minutesAgo(60 * 24) },
   },
   { id: 'u6', name: 'Fábio Teixeira', email: 'fabio@exemplo.com', roleId: 'r-agent', status: 'disabled', availability: 'offline', lastSeenAt: minutesAgo(60 * 24 * 40) },
 ];

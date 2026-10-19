@@ -1,2 +1,3 @@
-// Link público de ativação. Com a API real, o back-end envia por e-mail e o painel só mostra o status.
+// Link de ativação que vai no e-mail do convite. O painel só o exibe no ambiente de
+// desenvolvimento (sem servidor de e-mail); em produção quem envia é o back-end.
 export const inviteLink = (token: string) => `${window.location.origin}/convite/${token}`;

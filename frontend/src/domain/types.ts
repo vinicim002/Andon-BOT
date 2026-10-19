@@ -29,14 +29,15 @@ export interface User {
   availability: Availability;
   pauseReason?: string;
   lastSeenAt?: IsoDateTime;
-  // Convite pendente: link de uso único com validade. Some quando a pessoa ativa o acesso.
-  invite?: { token: string; expiresAt: IsoDateTime; invitedBy: Id };
+  // Convite pendente: enviado por e-mail com link de uso único e validade. Some quando a pessoa ativa o acesso.
+  invite?: { token: string; expiresAt: IsoDateTime; invitedBy: Id; sentAt: IsoDateTime };
 }
 
 // Permissões granulares; papéis são conjuntos delas (RBAC). O back-end valida cada ação —
 // no console elas só escondem ou desabilitam o que a pessoa não pode fazer.
 export type Permission =
   | 'conversations.view_all'
+  | 'conversations.take_over'
   | 'conversations.reply'
   | 'conversations.transfer'
   | 'tickets.view'
@@ -58,11 +59,16 @@ export interface Role {
 
 export type RoleInput = Omit<Role, 'id' | 'system'>;
 
+// Convite em lote: os mesmos papel e filas para todos os e-mails. O nome a pessoa confirma ao ativar.
 export interface InviteInput {
-  name: string;
-  email: string;
+  emails: string[];
   roleId: Id;
   queueIds: Id[];
+}
+
+export interface InviteResult {
+  invited: User[];
+  skipped: { email: string; reason: string }[];
 }
 
 export type TagColor = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'cyan';

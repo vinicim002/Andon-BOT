@@ -23,6 +23,8 @@ type Props = {
   quickReplies: QuickReply[];
   onAssign: () => void;
   canReply: boolean;
+  // Assumir atendimento que já está com outra pessoa (sem responsável, qualquer um da fila assume).
+  canTakeOver: boolean;
   // Ausentes quando o papel não permite: a opção some do menu.
   onTransfer?: () => void;
   onOpenTicket?: () => void;
@@ -40,6 +42,9 @@ export function ConversationView(props: Props) {
   const assignee = userById(c.assigneeId);
   const queue = queues.find((q) => q.id === c.queueId);
   const isMine = c.assigneeId === me.id;
+  const canAssign = !isMine && (!c.assigneeId || props.canTakeOver);
+  // Resolver/reabrir mexe no atendimento de alguém: mesma regra de assumir.
+  const canClose = isMine || !c.assigneeId || props.canTakeOver;
   const resolved = c.status === 'resolved' || c.status === 'closed';
   const now = useNow(30_000);
   const windowClosed = !c.windowExpiresAt || new Date(c.windowExpiresAt).getTime() < now;
@@ -75,20 +80,21 @@ export function ConversationView(props: Props) {
               <Button variant="ghost" iconOnlyLabel="Ligar" icon={<Phone />} disabled />
             </span>
           </Tooltip>
-          {!isMine && !resolved && (
+          {canAssign && !resolved && (
             <Button variant="primary" icon={<UserCheck />} onClick={props.onAssign}>
               Assumir
             </Button>
           )}
-          {resolved ? (
-            <Button icon={<RotateCcw />} onClick={props.onReopen}>
-              Reabrir
-            </Button>
-          ) : (
-            <Button icon={<CheckCircle2 />} onClick={props.onResolve}>
-              Resolver
-            </Button>
-          )}
+          {canClose &&
+            (resolved ? (
+              <Button icon={<RotateCcw />} onClick={props.onReopen}>
+                Reabrir
+              </Button>
+            ) : (
+              <Button icon={<CheckCircle2 />} onClick={props.onResolve}>
+                Resolver
+              </Button>
+            ))}
 
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
@@ -152,9 +158,13 @@ export function ConversationView(props: Props) {
         <div className={s.composerNotice}>
           <UserCheck aria-hidden />
           {assignee ? `Este atendimento está com ${assignee.name}.` : 'Este atendimento ainda não tem responsável.'}
-          <Button variant="primary" onClick={props.onAssign}>
-            Assumir atendimento
-          </Button>
+          {canAssign ? (
+            <Button variant="primary" onClick={props.onAssign}>
+              Assumir atendimento
+            </Button>
+          ) : (
+            <span className={s.noticeHint}>Para assumir, peça a um supervisor que transfira para você.</span>
+          )}
         </div>
       ) : !props.canReply ? (
         <div className={s.composerNotice}>

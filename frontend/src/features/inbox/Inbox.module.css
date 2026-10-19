@@ -1116,3 +1116,8 @@ a.historyItem:hover {
   height: 30px;
   font-size: var(--text-xs);
 }
+
+.noticeHint {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}

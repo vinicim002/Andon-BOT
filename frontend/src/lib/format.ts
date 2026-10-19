@@ -44,3 +44,10 @@ export function formatListTime(iso: string) {
   const label = formatDayLabel(iso);
   return label === 'Hoje' ? formatTime(iso) : label;
 }
+
+// "há 3 min", "agora", "em 12/10/2026" — para frases como "enviado há 3 min".
+export function formatAgo(iso: string) {
+  const rel = formatRelative(iso);
+  if (rel === 'agora') return rel;
+  return rel.includes('/') ? `em ${rel}` : `há ${rel}`;
+}

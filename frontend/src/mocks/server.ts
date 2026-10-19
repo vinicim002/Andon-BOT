@@ -6,6 +6,8 @@
 import type {
   Availability,
   InviteInput,
+  InviteResult,
+  Permission,
   Role,
   RoleInput,
   User,
@@ -27,7 +29,7 @@ import type {
 import * as seed from './data';
 
 // Versão no nome: mudou o formato dos dados, a aba descarta o estado antigo.
-const STORAGE_KEY = 'andon-mock-db-v3';
+const STORAGE_KEY = 'andon-mock-db-v4';
 
 const initial = {
   users: [...seed.users],
@@ -93,6 +95,10 @@ export function markRead(conversationId: Id) {
 }
 
 export function assign(conversationId: Id, actorId: Id) {
+  const current = conversationById(conversationId).assigneeId;
+  if (current && current !== actorId && !hasPermission(actorId, 'conversations.take_over')) {
+    throw new Error(`Este atendimento está com ${userName(current)}. Peça a um supervisor para transferir.`);
+  }
   patchConversation(conversationId, { assigneeId: actorId, status: 'in_progress', botPaused: true });
   systemMessage(conversationId, `${userName(actorId)} assumiu o atendimento`);
 }
@@ -348,6 +354,29 @@ export class AccessError extends Error {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
+
+function hasPermission(userId: Id, permission: Permission) {
+  const user = db.users.find((u) => u.id === userId);
+  return Boolean(db.roles.find((r) => r.id === user?.roleId)?.permissions.includes(permission));
+}
+
+// "maria.silva@x.com" → "Maria Silva": nome provisório até a pessoa confirmar na ativação.
+function nameFromEmail(email: string) {
+  return email
+    .split('@')[0]
+    .split(/[._-]+/)
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+// Mock do envio: com a API real, o back-end manda o e-mail (fila durável, com retentativa).
+const freshInvite = (actorId: Id) => ({
+  token: inviteToken(),
+  expiresAt: new Date(Date.now() + 7 * DAY).toISOString(),
+  invitedBy: actorId,
+  sentAt: now(),
+});
 const inviteToken = () => crypto.randomUUID().replace(/-/g, '');
 const isAdmin = (u: User) => db.roles.find((r) => r.id === u.roleId)?.system === true;
 const activeAdmins = () => db.users.filter((u) => u.status === 'active' && isAdmin(u));
@@ -382,31 +411,45 @@ export function authenticate(email: string, password: string): User {
   return userById(user.id);
 }
 
-export function invite(input: InviteInput, actorId: Id) {
-  const email = input.email.trim().toLowerCase();
-  if (!input.name.trim()) throw new Error('Informe o nome.');
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Informe um e-mail válido.');
-  if (db.users.some((u) => u.email.toLowerCase() === email)) throw new Error('Já existe um usuário com esse e-mail.');
+export function invite(input: InviteInput, actorId: Id): InviteResult {
   if (!db.roles.some((r) => r.id === input.roleId)) throw new Error('Escolha um papel.');
-  const user: User = {
-    id: id(),
-    name: input.name.trim(),
-    email,
-    roleId: input.roleId,
-    status: 'invited',
-    availability: 'offline',
-    invite: { token: inviteToken(), expiresAt: new Date(Date.now() + 7 * DAY).toISOString(), invitedBy: actorId },
-  };
-  db.users = [...db.users, user];
-  setMemberships(user.id, input.queueIds);
-  return user;
+  const result: InviteResult = { invited: [], skipped: [] };
+  const seen = new Set<string>();
+  for (const raw of input.emails) {
+    const email = raw.trim().toLowerCase();
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      result.skipped.push({ email, reason: 'e-mail inválido' });
+      continue;
+    }
+    const existing = db.users.find((u) => u.email.toLowerCase() === email);
+    if (existing) {
+      result.skipped.push({ email, reason: existing.status === 'invited' ? 'já tem convite pendente' : 'já tem acesso' });
+      continue;
+    }
+    const user: User = {
+      id: id(),
+      name: nameFromEmail(email),
+      email,
+      roleId: input.roleId,
+      status: 'invited',
+      availability: 'offline',
+      invite: freshInvite(actorId),
+    };
+    db.users = [...db.users, user];
+    setMemberships(user.id, input.queueIds);
+    result.invited.push(user);
+  }
+  if (result.invited.length === 0 && result.skipped.length === 0) throw new Error('Informe pelo menos um e-mail.');
+  return result;
 }
 
-// Gera um link novo (o anterior deixa de valer) e renova a validade.
+// Reenvia o e-mail com um link novo (o anterior deixa de valer) e renova a validade — inclusive de convite expirado.
 export function resendInvite(userId: Id, actorId: Id) {
   const user = userById(userId);
   if (user.status !== 'invited') throw new Error('Este usuário já ativou o acesso.');
-  patchUser(userId, { invite: { token: inviteToken(), expiresAt: new Date(Date.now() + 7 * DAY).toISOString(), invitedBy: actorId } });
+  patchUser(userId, { invite: freshInvite(actorId) });
   return userById(userId);
 }
 

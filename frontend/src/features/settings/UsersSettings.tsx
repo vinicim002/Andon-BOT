@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { DropdownMenu } from 'radix-ui';
-import { Ban, Copy, KeyRound, Mail, MoreHorizontal, RotateCcw, Search, UserPlus, XCircle } from 'lucide-react';
+import { Ban, KeyRound, Mail, MoreHorizontal, RotateCcw, Search, UserPlus, XCircle } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { useCurrentUser } from '../../app/permissions';
@@ -11,11 +11,10 @@ import { useToast } from '../../design-system/useToast';
 import { userStatus } from '../../domain/labels';
 import type { OperationalQueue, Role, User, UserStatus } from '../../domain/types';
 import { cx } from '../../lib/cx';
-import { formatRelative } from '../../lib/format';
+import { formatAgo, formatRelative } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 import { EditUserDialog } from './EditUserDialog';
 import { InviteDialog } from './InviteDialog';
-import { inviteLink } from './inviteLink';
 import { RolesPanel } from './RolesPanel';
 import s from './Settings.module.css';
 
@@ -90,16 +89,6 @@ function UsersPanel({ users, roles, queues }: { users: User[]; roles: Role[]; qu
     }
   };
 
-  const copyLink = async (u: User) => {
-    if (!u.invite) return;
-    try {
-      await navigator.clipboard.writeText(inviteLink(u.invite.token));
-      toast({ message: `Link copiado. Entregue somente para ${u.email}.` });
-    } catch {
-      toast({ message: 'O navegador bloqueou a cópia.', tone: 'error' });
-    }
-  };
-
   if (!me) return null;
 
   return (
@@ -119,7 +108,7 @@ function UsersPanel({ users, roles, queues }: { users: User[]; roles: Role[]; qu
             <TextInput type="search" placeholder="Nome ou e-mail" aria-label="Buscar usuários" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <Button variant="primary" icon={<UserPlus />} onClick={() => setInviting(true)}>
-            Convidar usuário
+            Convidar pessoas
           </Button>
         </div>
       </div>
@@ -176,7 +165,11 @@ function UsersPanel({ users, roles, queues }: { users: User[]; roles: Role[]; qu
                   <td>
                     <span className={s.statusCell}>
                       <Badge tone={expired ? 'danger' : userStatus[u.status].tone}>{expired ? 'Convite expirado' : userStatus[u.status].label}</Badge>
-                      {u.status === 'invited' && !expired && <span className={s.muted}>expira em {daysLeft} dia(s)</span>}
+                      {u.status === 'invited' && u.invite && (
+                        <span className={s.muted}>
+                          {expired ? 'reenvie para gerar um link novo' : `enviado ${formatAgo(u.invite.sentAt)} · expira em ${daysLeft} dia(s)`}
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td className={s.muted}>{u.lastSeenAt ? formatRelative(u.lastSeenAt) : 'Nunca acessou'}</td>
@@ -192,11 +185,8 @@ function UsersPanel({ users, roles, queues }: { users: User[]; roles: Role[]; qu
                           </DropdownMenu.Item>
                           {u.status === 'invited' && (
                             <>
-                              <DropdownMenu.Item className={s.menuItem} disabled={expired} onSelect={() => copyLink(u)}>
-                                <Copy aria-hidden /> Copiar link do convite
-                              </DropdownMenu.Item>
-                              <DropdownMenu.Item className={s.menuItem} onSelect={() => run(api.resendInvite(u.id, me.id), 'Novo link gerado. O anterior deixou de valer.')}>
-                                <Mail aria-hidden /> Gerar novo link
+                              <DropdownMenu.Item className={s.menuItem} onSelect={() => run(api.resendInvite(u.id, me.id), `Convite reenviado para ${u.email}.`)}>
+                                <Mail aria-hidden /> Reenviar convite
                               </DropdownMenu.Item>
                               <DropdownMenu.Separator className={s.menuSeparator} />
                               <DropdownMenu.Item className={cx(s.menuItem, s.menuDanger)} onSelect={() => setConfirm({ kind: 'revoke', user: u })}>
@@ -261,7 +251,7 @@ function UsersPanel({ users, roles, queues }: { users: User[]; roles: Role[]; qu
         }}
       >
         {confirm?.kind === 'revoke' ? (
-          <p>O link enviado para {confirm.user.email} deixa de funcionar. Você pode convidar a pessoa de novo depois.</p>
+          <p>O link do e-mail enviado para {confirm.user.email} deixa de funcionar. Você pode convidar a pessoa de novo depois.</p>
         ) : (
           <p>
             A pessoa perde o acesso imediatamente. Os atendimentos em andamento com ela voltam para a fila e são redistribuídos. O histórico é mantido e

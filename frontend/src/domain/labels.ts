@@ -47,6 +47,7 @@ export const permissionGroups: { title: string; permissions: { key: Permission; 
     title: 'Atendimento',
     permissions: [
       { key: 'conversations.view_all', label: 'Ver todos os atendimentos', description: 'Sem isso, vê só os seus e os das filas de que participa.' },
+      { key: 'conversations.take_over', label: 'Assumir atendimento de outra pessoa', description: 'Sem isso, só assume os que estão sem responsável.' },
       { key: 'conversations.reply', label: 'Responder clientes', description: 'Enviar mensagens e anotações internas.' },
       { key: 'conversations.transfer', label: 'Transferir atendimentos', description: 'Para outra pessoa ou fila.' },
     ],

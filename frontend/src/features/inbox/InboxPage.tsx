@@ -149,6 +149,7 @@ function Inbox({ conversations, queues, users, tickets, quickReplies, me, can }:
             quickReplies={quickReplies}
             onAssign={() => run(api.conversation.assign(selected.id, me.id), 'Atendimento assumido.')}
             canReply={can('conversations.reply')}
+            canTakeOver={can('conversations.take_over')}
             onTransfer={can('conversations.transfer') ? () => setDialog('transfer') : undefined}
             onOpenTicket={can('tickets.manage') ? () => setDialog('ticket') : undefined}
             onToggleBot={() =>
