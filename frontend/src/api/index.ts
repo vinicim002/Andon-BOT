@@ -26,6 +26,7 @@ import type {
   TransferTarget,
   User,
 } from '../domain/types';
+import type { Workflow, WorkflowDefinition, WorkflowTemplate } from '../domain/workflow';
 import { notifyChange } from './events';
 
 const delay = <T,>(value: T, ms = 120) => new Promise<T>((resolve) => setTimeout(() => resolve(value), ms));
@@ -71,6 +72,23 @@ export const api = {
   updateUser: (userId: Id, input: { roleId: Id; queueIds: Id[] }) => mutate(() => server.updateUser(userId, input)),
   // Devolve quantos atendimentos voltaram para a fila (ao desativar).
   setUserStatus: (userId: Id, status: 'active' | 'disabled', actorId: Id) => mutate(() => server.setUserStatus(userId, status, actorId)),
+  workflows: (): Promise<Workflow[]> => delay(db.workflows),
+  workflow: async (workflowId: Id): Promise<Workflow> => {
+    const workflow = db.workflows.find((w) => w.id === workflowId);
+    if (!workflow) throw new ApiError('Workflow não encontrado.', 404);
+    return delay(workflow);
+  },
+  createWorkflow: (template: WorkflowTemplate, actorId: Id) => mutate(() => server.createWorkflow(template, actorId)),
+  saveWorkflowDraft: (workflowId: Id, draft: WorkflowDefinition, actorId: Id) => mutate(() => server.saveDraft(workflowId, draft, actorId)),
+  updateWorkflowInfo: (workflowId: Id, info: { name?: string; description?: string; pauseAi?: boolean }) =>
+    mutate(() => server.updateWorkflowInfo(workflowId, info)),
+  publishWorkflow: (workflowId: Id, note: string, actorId: Id) => mutate(() => server.publishWorkflow(workflowId, note, actorId)),
+  publishWorkflowVersion: (workflowId: Id, versionId: Id) => mutate(() => server.publishExistingVersion(workflowId, versionId)),
+  restoreWorkflowVersion: (workflowId: Id, versionId: Id, actorId: Id) => mutate(() => server.restoreVersionAsDraft(workflowId, versionId, actorId)),
+  setWorkflowStatus: (workflowId: Id, status: Workflow['status']) => mutate(() => server.setWorkflowStatus(workflowId, status)),
+  duplicateWorkflow: (workflowId: Id, actorId: Id) => mutate(() => server.duplicateWorkflow(workflowId, actorId)),
+  deleteWorkflow: (workflowId: Id) => mutate(() => server.deleteWorkflow(workflowId)),
+
   createRole: (input: RoleInput) => mutate(() => server.createRole(input)),
   updateRole: (roleId: Id, input: RoleInput) => mutate(() => server.updateRole(roleId, input)),
   deleteRole: (roleId: Id) => mutate(() => server.deleteRole(roleId)),

@@ -19,6 +19,8 @@ function readStored(): User | undefined {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | undefined>(readStored);
+  // Saída explícita ("Sair"): o próximo login começa do início, sem voltar à página de quem saiu.
+  const [signedOut, setSignedOut] = useState(false);
 
   const signIn = async (email: string, password: string) => {
     const signedIn = await api.signIn(email, password);
@@ -27,6 +29,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch {
       // Sem armazenamento a sessão vale só até recarregar a página.
     }
+    setSignedOut(false);
     setUser(signedIn);
   };
 
@@ -36,15 +39,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch {
       // Nada a limpar.
     }
+    setSignedOut(true);
     setUser(undefined);
   };
 
-  return <SessionContext.Provider value={{ user, signIn, signOut }}>{children}</SessionContext.Provider>;
+  return <SessionContext.Provider value={{ user, signedOut, signIn, signOut }}>{children}</SessionContext.Provider>;
 }
 
 export function RequireSession({ children }: { children: ReactNode }) {
-  const { user } = useSession();
+  const { user, signedOut } = useSession();
   const location = useLocation();
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  // Sessão ausente por link direto (ou expirada): depois do login, volta para onde a pessoa ia.
+  if (!user) return <Navigate to="/login" replace state={signedOut ? null : { from: location.pathname + location.search }} />;
   return children;
 }

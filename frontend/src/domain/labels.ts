@@ -67,6 +67,10 @@ export const permissionGroups: { title: string; permissions: { key: Permission; 
     ],
   },
   {
+    title: 'Automação',
+    permissions: [{ key: 'workflows.manage', label: 'Gerenciar workflows', description: 'Criar, editar, testar, publicar e reverter automações.' }],
+  },
+  {
     title: 'Configurações',
     permissions: [
       { key: 'settings.queues', label: 'Filas', description: 'Criar e editar filas e equipes.' },

@@ -13,6 +13,8 @@ import type {
   TicketEvent,
   User,
 } from '../domain/types';
+import type { Workflow, WorkflowDefinition } from '../domain/workflow';
+import { templateDefinition } from '../domain/workflowTemplates';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const minutesFromNow = (m: number) => minutesAgo(-m);
@@ -24,7 +26,7 @@ export const roles: Role[] = [
     description: 'Acesso total, inclusive usuários, papéis e configurações.',
     permissions: [
       'conversations.view_all', 'conversations.take_over', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
-      'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies', 'settings.users',
+      'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies', 'settings.users', 'workflows.manage',
     ],
     system: true,
   },
@@ -34,7 +36,7 @@ export const roles: Role[] = [
     description: 'Acompanha todos os atendimentos e cuida das filas e respostas rápidas.',
     permissions: [
       'conversations.view_all', 'conversations.take_over', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
-      'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies',
+      'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies', 'workflows.manage',
     ],
     system: false,
   },
@@ -192,4 +194,46 @@ export const quickReplies: QuickReply[] = [
   { id: 'r3', shortcut: 'coleta', title: 'Dados para coleta', body: 'Para agendar a coleta, me envie: endereço completo, quantidade de volumes, peso aproximado e data desejada.' },
   { id: 'r4', shortcut: 'nf', title: 'Solicitar nota fiscal', body: 'Pode me enviar a nota fiscal da mercadoria (PDF ou foto legível)?' },
   { id: 'r5', shortcut: 'encerrar', title: 'Encerramento', body: 'Fico à disposição, {{nome}}! Se precisar de algo, é só chamar por aqui.' },
+];
+
+// Workflows de exemplo: um publicado com rascunho alterado (mostra "alterações não publicadas")
+// e um publicado e pausado.
+const triageV1 = templateDefinition('triage');
+const triageDraft: WorkflowDefinition = structuredClone(triageV1);
+(triageDraft.nodes[1].config as { text: string }).text =
+  'Olá, {{contato.nome}}! 👋 Sou o assistente virtual da Empresa Exemplo. Atendemos de segunda a sexta, das 8h às 18h.';
+const orderV1 = templateDefinition('order_status');
+
+export const workflows: Workflow[] = [
+  {
+    id: 'w1',
+    name: 'Triagem de boas-vindas',
+    description: 'Cumprimenta e direciona para Comercial, Suporte ou Financeiro.',
+    draft: triageDraft,
+    draftUpdatedAt: minutesAgo(40),
+    draftUpdatedBy: 'u3',
+    versions: [
+      { id: 'w1v1', number: 1, definition: triageV1, note: 'Primeira versão', publishedBy: 'u1', publishedAt: minutesAgo(60 * 24 * 9) },
+      { id: 'w1v2', number: 2, definition: triageV1, note: 'Ajuste no texto da opção de pedidos', publishedBy: 'u3', publishedAt: minutesAgo(60 * 24 * 2) },
+    ],
+    publishedVersionId: 'w1v2',
+    status: 'active',
+    pauseAi: true,
+    stats: { runs24h: 128, failures24h: 0 },
+    createdAt: minutesAgo(60 * 24 * 9),
+  },
+  {
+    id: 'w2',
+    name: 'Status do pedido',
+    description: 'Consulta o ERP quando o cliente fala de pedido ou entrega.',
+    draft: orderV1,
+    draftUpdatedAt: minutesAgo(60 * 24 * 5),
+    draftUpdatedBy: 'u1',
+    versions: [{ id: 'w2v1', number: 1, definition: orderV1, note: 'Integração com o ERP (simulada)', publishedBy: 'u1', publishedAt: minutesAgo(60 * 24 * 5) }],
+    publishedVersionId: 'w2v1',
+    status: 'paused',
+    pauseAi: true,
+    stats: { runs24h: 0, failures24h: 0 },
+    createdAt: minutesAgo(60 * 24 * 5),
+  },
 ];

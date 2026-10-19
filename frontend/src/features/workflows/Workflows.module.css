@@ -1,0 +1,112 @@
+.row {
+  cursor: pointer;
+}
+.name {
+  display: block;
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+.name:hover {
+  color: var(--accent);
+}
+.description {
+  display: block;
+  max-width: 420px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.statusCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.pending {
+  color: var(--tone-warning-fg);
+  font-size: var(--text-xs);
+}
+.failures {
+  color: var(--tone-danger-fg);
+  font-size: var(--text-sm);
+}
+.muted {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.actionsCell {
+  width: 48px;
+  text-align: right;
+}
+
+.menu {
+  min-width: 200px;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+}
+.menuItem svg {
+  width: 16px;
+  height: 16px;
+}
+.menuItem[data-highlighted] {
+  background: var(--bg-hover);
+}
+.menuDanger {
+  color: var(--tone-danger-fg);
+}
+.menuSeparator {
+  height: 1px;
+  margin: var(--space-1) 0;
+  background: var(--border);
+}
+
+.templates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+@media (max-width: 640px) {
+  .templates {
+    grid-template-columns: 1fr;
+  }
+}
+.template {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 120px;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  text-align: left;
+  cursor: pointer;
+}
+.template:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.template strong {
+  font-size: var(--text-md);
+}
+.template span {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}

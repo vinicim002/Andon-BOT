@@ -46,7 +46,8 @@ export type Permission =
   | 'contacts.edit'
   | 'settings.queues'
   | 'settings.quick_replies'
-  | 'settings.users';
+  | 'settings.users'
+  | 'workflows.manage';
 
 export interface Role {
   id: Id;

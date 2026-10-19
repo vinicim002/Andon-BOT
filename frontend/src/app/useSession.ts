@@ -3,6 +3,7 @@ import type { User } from '../domain/types';
 
 export type Session = {
   user?: User;
+  signedOut: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => void;
 };

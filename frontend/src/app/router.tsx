@@ -41,7 +41,11 @@ export const router = createBrowserRouter([
       { path: 'contatos', lazy: page(() => import('../features/contacts/ContactsPage'), (m) => m.ContactsPage, 'contacts.view') },
       { path: 'painel', element: <PlaceholderPage title="Painel" description="Indicadores da operação em tempo real." /> },
       { path: 'filas', element: <Navigate to="/configuracoes/filas" replace /> },
-      { path: 'workflows', element: <PlaceholderPage title="Workflows" description="Automações visuais com versão, publicação e rollback." /> },
+      { path: 'workflows', lazy: page(() => import('../features/workflows/WorkflowsPage'), (m) => m.WorkflowsPage, 'workflows.manage') },
+      {
+        path: 'workflows/:workflowId',
+        lazy: page(() => import('../features/workflows/WorkflowEditorPage'), (m) => m.WorkflowEditorPage, 'workflows.manage'),
+      },
       {
         path: 'configuracoes',
         lazy: page(() => import('../features/settings/SettingsLayout'), (m) => m.SettingsLayout),

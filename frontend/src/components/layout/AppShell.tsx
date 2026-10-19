@@ -24,7 +24,7 @@ const navigation: NavItem[][] = [
     { to: '/contatos', label: 'Contatos', icon: Users, permission: 'contacts.view' },
   ],
   [
-    { to: '/workflows', label: 'Workflows', icon: Workflow },
+    { to: '/workflows', label: 'Workflows', icon: Workflow, permission: 'workflows.manage' },
     { to: '/painel', label: 'Painel', icon: LayoutDashboard },
   ],
 ];

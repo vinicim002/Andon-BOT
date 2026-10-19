@@ -26,10 +26,13 @@ import type {
   TicketEvent,
   TransferTarget,
 } from '../domain/types';
+import type { Workflow, WorkflowDefinition, WorkflowTemplate } from '../domain/workflow';
+import { validateWorkflow } from '../domain/workflowValidation';
+import { templateDefinition, templateInfo } from '../domain/workflowTemplates';
 import * as seed from './data';
 
 // Versão no nome: mudou o formato dos dados, a aba descarta o estado antigo.
-const STORAGE_KEY = 'andon-mock-db-v4';
+const STORAGE_KEY = 'andon-mock-db-v5';
 
 const initial = {
   users: [...seed.users],
@@ -43,6 +46,7 @@ const initial = {
   tickets: [...seed.tickets],
   ticketEvents: [...seed.ticketEvents],
   quickReplies: [...seed.quickReplies],
+  workflows: [...seed.workflows],
 };
 
 function load(): typeof initial {
@@ -537,4 +541,101 @@ export function deleteRole(roleId: Id) {
   const inUse = db.users.filter((u) => u.roleId === roleId).length;
   if (inUse) throw new Error(`${inUse} usuário(s) usam este papel. Troque o papel deles antes de excluir.`);
   db.roles = db.roles.filter((r) => r.id !== roleId);
+}
+
+// ---------- Workflows: rascunho, publicação versionada e reversão ----------
+
+function workflowById(workflowId: Id) {
+  const workflow = db.workflows.find((w) => w.id === workflowId);
+  if (!workflow) throw new NotFound('Workflow não encontrado.');
+  return workflow;
+}
+
+function patchWorkflow(workflowId: Id, patch: Partial<Workflow>) {
+  db.workflows = db.workflows.map((w) => (w.id === workflowId ? { ...w, ...patch } : w));
+  return workflowById(workflowId);
+}
+
+export function createWorkflow(template: WorkflowTemplate, actorId: Id): Workflow {
+  const base = templateInfo[template];
+  const sameName = db.workflows.filter((w) => w.name.startsWith(base.name)).length;
+  const workflow: Workflow = {
+    id: id(),
+    name: template === 'blank' ? `Novo workflow${sameName ? ` ${sameName + 1}` : ''}` : `${base.name}${sameName ? ` ${sameName + 1}` : ''}`,
+    description: template === 'blank' ? '' : base.description,
+    draft: templateDefinition(template),
+    draftUpdatedAt: now(),
+    draftUpdatedBy: actorId,
+    versions: [],
+    status: 'active',
+    pauseAi: true,
+    stats: { runs24h: 0, failures24h: 0 },
+    createdAt: now(),
+  };
+  db.workflows = [...db.workflows, workflow];
+  return workflow;
+}
+
+// Salvamento automático do rascunho (o editor chama a cada alteração, com atraso).
+export function saveDraft(workflowId: Id, draft: WorkflowDefinition, actorId: Id) {
+  return patchWorkflow(workflowId, { draft, draftUpdatedAt: now(), draftUpdatedBy: actorId });
+}
+
+export function updateWorkflowInfo(workflowId: Id, info: { name?: string; description?: string; pauseAi?: boolean }) {
+  if (info.name !== undefined && !info.name.trim()) throw new Error('O nome não pode ficar em branco.');
+  return patchWorkflow(workflowId, { ...info, ...(info.name !== undefined ? { name: info.name.trim() } : {}) });
+}
+
+// Publicar congela o rascunho como versão nova (imutável) e passa a rodar no atendimento.
+export function publishWorkflow(workflowId: Id, note: string, actorId: Id) {
+  const workflow = workflowById(workflowId);
+  const issues = validateWorkflow(workflow.draft);
+  if (issues.length) throw new Error(`Corrija ${issues.length} problema(s) antes de publicar.`);
+  if (!note.trim()) throw new Error('Descreva o que mudou nesta versão.');
+  const number = (workflow.versions.at(-1)?.number ?? 0) + 1;
+  const version = { id: id(), number, definition: structuredClone(workflow.draft), note: note.trim(), publishedBy: actorId, publishedAt: now() };
+  return patchWorkflow(workflowId, { versions: [...workflow.versions, version], publishedVersionId: version.id });
+}
+
+// Reversão: volta a rodar uma versão anterior, sem apagar as mais novas (o histórico fica completo).
+export function publishExistingVersion(workflowId: Id, versionId: Id) {
+  const workflow = workflowById(workflowId);
+  if (!workflow.versions.some((v) => v.id === versionId)) throw new NotFound('Versão não encontrada.');
+  return patchWorkflow(workflowId, { publishedVersionId: versionId });
+}
+
+// Copia uma versão para o rascunho, para editar a partir dela.
+export function restoreVersionAsDraft(workflowId: Id, versionId: Id, actorId: Id) {
+  const version = workflowById(workflowId).versions.find((v) => v.id === versionId);
+  if (!version) throw new NotFound('Versão não encontrada.');
+  return saveDraft(workflowId, structuredClone(version.definition), actorId);
+}
+
+export function setWorkflowStatus(workflowId: Id, status: Workflow['status']) {
+  const workflow = workflowById(workflowId);
+  if (status === 'active' && !workflow.publishedVersionId) throw new Error('Publique uma versão antes de ativar.');
+  return patchWorkflow(workflowId, { status });
+}
+
+export function duplicateWorkflow(workflowId: Id, actorId: Id) {
+  const source = workflowById(workflowId);
+  const copy: Workflow = {
+    ...structuredClone(source),
+    id: id(),
+    name: `${source.name} (cópia)`,
+    versions: [],
+    publishedVersionId: undefined,
+    status: 'active',
+    stats: { runs24h: 0, failures24h: 0 },
+    draftUpdatedAt: now(),
+    draftUpdatedBy: actorId,
+    createdAt: now(),
+  };
+  db.workflows = [...db.workflows, copy];
+  return copy;
+}
+
+export function deleteWorkflow(workflowId: Id) {
+  workflowById(workflowId);
+  db.workflows = db.workflows.filter((w) => w.id !== workflowId);
 }
