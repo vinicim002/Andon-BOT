@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { useSession } from '../../app/useSession';
-import { EmptyState, ErrorState, LoadingState } from '../../design-system/components';
+import { Button, EmptyState, ErrorState, LoadingState } from '../../design-system/components';
 import { useToast } from '../../design-system/useToast';
 import type { Conversation, Id, OperationalQueue, QuickReply, Tag, Ticket, TransferTarget, User } from '../../domain/types';
 import { NewTicketDialog } from '../tickets/NewTicketDialog';
@@ -119,6 +119,19 @@ function Inbox({ conversations, queues, users, tickets, quickReplies, me }: Inbo
         onSelect={select}
         queues={queues}
         users={users}
+        notice={
+          me.availability !== 'available' && (
+            <div className={s.availabilityNotice} role="status">
+              <span>
+                <strong>{me.availability === 'paused' ? `Você está em pausa${me.pauseReason ? ` (${me.pauseReason})` : ''}` : 'Você está ausente'}</strong>
+                Não recebe novos atendimentos pelo rodízio.
+              </span>
+              <Button variant="secondary" onClick={() => run(api.setAvailability(me.id, 'available'), 'Status: Disponível.')}>
+                Ficar disponível
+              </Button>
+            </div>
+          )
+        }
       />
       {selected ? (
         <>

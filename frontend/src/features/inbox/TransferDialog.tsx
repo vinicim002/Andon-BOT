@@ -17,6 +17,9 @@ type Props = {
   onConfirm: (target: TransferTarget, note: string | undefined) => void;
 };
 
+// Disponíveis primeiro, depois em pausa, depois ausentes.
+const rank = { available: 0, paused: 1, offline: 2 } as const;
+
 export function TransferDialog(props: Props) {
   // O conteúdo só monta com o diálogo aberto: cada abertura começa limpa.
   return (
@@ -38,11 +41,11 @@ function TransferForm({ conversation, users, queues, me, onConfirm, onOpenChange
   const [note, setNote] = useState('');
   const [search, setSearch] = useState('');
 
-  // Disponíveis primeiro; o atual responsável não aparece.
+  // O atual responsável e quem transfere não aparecem.
   const candidates = users
     .filter((u) => u.id !== conversation.assigneeId && u.id !== me.id)
     .filter((u) => !search.trim() || `${u.name} ${u.email}`.toLowerCase().includes(search.trim().toLowerCase()))
-    .sort((a, b) => Number(b.online) - Number(a.online));
+    .sort((a, b) => rank[a.availability] - rank[b.availability]);
 
   const target: TransferTarget | undefined =
     kind === 'user' ? (userId ? { kind: 'user', userId } : undefined) : queueId ? { kind: 'queue', queueId } : undefined;
@@ -81,10 +84,16 @@ function TransferForm({ conversation, users, queues, me, onConfirm, onOpenChange
                     className={cx(s.option, userId === u.id && s.optionSelected)}
                     onClick={() => setUserId(u.id)}
                   >
-                    <Avatar name={u.name} size={32} online={u.online} />
+                    <Avatar name={u.name} size={32} presence={u.availability} />
                     <span className={s.optionText}>
                       <strong>{u.name}</strong>
-                      <span>{u.online ? 'Disponível' : 'Offline — recebe quando voltar'}</span>
+                      <span>
+                        {u.availability === 'available'
+                          ? 'Disponível'
+                          : u.availability === 'paused'
+                            ? `Em pausa${u.pauseReason ? ` — ${u.pauseReason}` : ''} · vê ao voltar`
+                            : 'Ausente · vê quando voltar'}
+                      </span>
                     </span>
                     {userId === u.id && <Check className={s.check} aria-hidden />}
                   </button>

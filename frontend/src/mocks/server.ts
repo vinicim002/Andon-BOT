@@ -4,11 +4,16 @@
 // Fica no sessionStorage da aba para sobreviver a recarregamentos durante demonstrações;
 // fechar a aba volta aos dados iniciais. Não é persistência de verdade.
 import type {
+  Availability,
   Contact,
   Conversation,
   Id,
   Message,
   NewTicket,
+  OperationalQueue,
+  QueueInput,
+  QuickReply,
+  QuickReplyInput,
   Tag,
   TagColor,
   Ticket,
@@ -17,18 +22,20 @@ import type {
 } from '../domain/types';
 import * as seed from './data';
 
-const STORAGE_KEY = 'andon-mock-db-v1';
+// Versão no nome: mudou o formato dos dados, a aba descarta o estado antigo.
+const STORAGE_KEY = 'andon-mock-db-v2';
 
 const initial = {
-  users: seed.users,
-  queues: seed.queues,
+  users: [...seed.users],
+  queues: [...seed.queues],
+  endpoints: seed.endpoints,
   contacts: [...seed.contacts],
   tags: [...seed.tagCatalog],
   conversations: [...seed.conversations],
   messages: [...seed.messages],
   tickets: [...seed.tickets],
   ticketEvents: [...seed.ticketEvents],
-  quickReplies: seed.quickReplies,
+  quickReplies: [...seed.quickReplies],
 };
 
 function load(): typeof initial {
@@ -96,6 +103,121 @@ export function transfer(conversationId: Id, target: TransferTarget, note: strin
   }
   // O resumo vira nota interna: quem recebe lê o contexto sem precisar rolar a conversa.
   if (note?.trim()) sendMessage(conversationId, `Resumo da transferência: ${note.trim()}`, true, actorId);
+  if (target.kind === 'queue') distribute(target.queueId);
+}
+
+// ---------- Distribuição (rodízio por disponibilidade) ----------
+
+const ACTIVE: Conversation['status'][] = ['in_progress', 'waiting_customer', 'waiting_internal'];
+const activeLoad = (userId: Id) => db.conversations.filter((c) => c.assigneeId === userId && ACTIVE.includes(c.status)).length;
+
+// Em filas com rodízio, cada conversa esperando vai para o membro disponível com menos
+// atendimentos ativos (empate: ordem alfabética). Sem ninguém disponível, continua na fila.
+export function distribute(queueId: Id) {
+  const queue = db.queues.find((q) => q.id === queueId);
+  if (!queue || queue.routingPolicy !== 'round_robin') return 0;
+  const waiting = db.conversations
+    .filter((c) => c.queueId === queueId && c.status === 'queued' && !c.assigneeId)
+    .sort((a, b) => a.lastMessage.at.localeCompare(b.lastMessage.at));
+  let assigned = 0;
+  for (const conversation of waiting) {
+    const candidates = db.users
+      .filter((u) => queue.memberIds.includes(u.id) && u.availability === 'available')
+      .sort((a, b) => activeLoad(a.id) - activeLoad(b.id) || a.name.localeCompare(b.name));
+    if (candidates.length === 0) break;
+    patchConversation(conversation.id, { assigneeId: candidates[0].id, status: 'in_progress', botPaused: true });
+    systemMessage(conversation.id, `Distribuído automaticamente para ${candidates[0].name} (rodízio da fila ${queue.name})`);
+    assigned++;
+  }
+  return assigned;
+}
+
+export function setAvailability(userId: Id, availability: Availability, pauseReason?: string) {
+  db.users = db.users.map((u) =>
+    u.id === userId ? { ...u, availability, pauseReason: availability === 'paused' ? pauseReason : undefined } : u,
+  );
+  // Ao ficar disponível, a pessoa puxa o que estava esperando nas filas dela.
+  if (availability === 'available') {
+    return db.queues.filter((q) => q.memberIds.includes(userId)).reduce((total, q) => total + distribute(q.id), 0);
+  }
+  return 0;
+}
+
+// ---------- Filas ----------
+
+function validateQueue(input: QueueInput, ignoreId?: Id) {
+  if (!input.name.trim()) throw new Error('Informe o nome da fila.');
+  if (db.queues.some((q) => q.id !== ignoreId && q.name.toLowerCase() === input.name.trim().toLowerCase())) {
+    throw new Error('Já existe uma fila com esse nome.');
+  }
+}
+
+// Garante exatamente uma fila padrão.
+function applyDefault(queueId: Id, isDefault: boolean) {
+  if (isDefault) db.queues = db.queues.map((q) => ({ ...q, isDefault: q.id === queueId }));
+}
+
+export function createQueue(input: QueueInput): OperationalQueue {
+  validateQueue(input);
+  const queue: OperationalQueue = { ...input, name: input.name.trim(), id: id(), isDefault: false };
+  db.queues = [...db.queues, queue];
+  applyDefault(queue.id, input.isDefault);
+  distribute(queue.id);
+  return queue;
+}
+
+export function updateQueue(queueId: Id, input: QueueInput) {
+  const current = db.queues.find((q) => q.id === queueId);
+  if (!current) throw new NotFound('Fila não encontrada.');
+  validateQueue(input, queueId);
+  if (current.isDefault && !input.isDefault) throw new Error('Defina outra fila como padrão antes de desmarcar esta.');
+  db.queues = db.queues.map((q) => (q.id === queueId ? { ...q, ...input, name: input.name.trim() } : q));
+  applyDefault(queueId, input.isDefault);
+  distribute(queueId);
+}
+
+// Conversas da fila excluída vão para a fila padrão; a padrão não pode ser excluída.
+export function deleteQueue(queueId: Id) {
+  const queue = db.queues.find((q) => q.id === queueId);
+  if (!queue) throw new NotFound('Fila não encontrada.');
+  if (queue.isDefault) throw new Error('A fila padrão não pode ser excluída. Defina outra como padrão antes.');
+  const fallback = db.queues.find((q) => q.isDefault)!;
+  const moved = db.conversations.filter((c) => c.queueId === queueId);
+  db.conversations = db.conversations.map((c) => (c.queueId === queueId ? { ...c, queueId: fallback.id } : c));
+  for (const c of moved) systemMessage(c.id, `Fila ${queue.name} excluída; conversa movida para ${fallback.name}`);
+  db.queues = db.queues.filter((q) => q.id !== queueId);
+  distribute(fallback.id);
+  return moved.length;
+}
+
+// ---------- Respostas rápidas ----------
+
+function normalizeShortcut(shortcut: string) {
+  return shortcut.trim().replace(/^\//, '').toLowerCase();
+}
+
+function validateQuickReply(input: QuickReplyInput, ignoreId?: Id) {
+  const shortcut = normalizeShortcut(input.shortcut);
+  if (!/^[a-z0-9-]{2,24}$/.test(shortcut)) throw new Error('O atalho deve ter de 2 a 24 letras, números ou hífen, sem espaços.');
+  if (!input.title.trim()) throw new Error('Informe o título.');
+  if (!input.body.trim()) throw new Error('Escreva o texto da resposta.');
+  if (db.quickReplies.some((r) => r.id !== ignoreId && r.shortcut === shortcut)) throw new Error(`O atalho /${shortcut} já existe.`);
+  return { shortcut, title: input.title.trim(), body: input.body.trim() };
+}
+
+export function createQuickReply(input: QuickReplyInput): QuickReply {
+  const reply = { ...validateQuickReply(input), id: id() };
+  db.quickReplies = [...db.quickReplies, reply];
+  return reply;
+}
+
+export function updateQuickReply(replyId: Id, input: QuickReplyInput) {
+  const clean = validateQuickReply(input, replyId);
+  db.quickReplies = db.quickReplies.map((r) => (r.id === replyId ? { ...r, ...clean } : r));
+}
+
+export function deleteQuickReply(replyId: Id) {
+  db.quickReplies = db.quickReplies.filter((r) => r.id !== replyId);
 }
 
 export function setBotPaused(conversationId: Id, paused: boolean, actorId: Id) {

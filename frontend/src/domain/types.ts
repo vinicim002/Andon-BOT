@@ -15,11 +15,15 @@ export type ConversationStatus =
 
 export type ChannelType = 'whatsapp' | 'webchat' | 'voice';
 
+// Disponibilidade do atendente: só quem está "available" recebe atendimentos pelo rodízio.
+export type Availability = 'available' | 'paused' | 'offline';
+
 export interface User {
   id: Id;
   name: string;
   email: string;
-  online: boolean;
+  availability: Availability;
+  pauseReason?: string;
 }
 
 export type TagColor = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'cyan';
@@ -53,13 +57,22 @@ export interface ChannelEndpoint {
   address: string;
 }
 
+export type RoutingPolicy = 'round_robin' | 'manual';
+
 export interface OperationalQueue {
   id: Id;
   name: string;
   color: TagColor;
-  routingPolicy: 'round_robin' | 'manual';
+  routingPolicy: RoutingPolicy;
   memberIds: Id[];
+  // Números/canais que entregam conversas nesta fila (N:N — no banco, endpoint_queue).
+  endpointIds: Id[];
+  // Fila que recebe conversas sem destino definido; existe sempre exatamente uma.
+  isDefault: boolean;
 }
+
+export type QueueInput = Omit<OperationalQueue, 'id'>;
+export type QuickReplyInput = Omit<QuickReply, 'id'>;
 
 export type ContentType = 'text' | 'image' | 'audio' | 'video' | 'document' | 'location';
 export type DeliveryStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Bot, Camera, Check, CheckCheck, CheckCircle2, Clock, Hourglass, MessageCircleMore, Plus, Search, SlidersHorizontal, Timer, X } from 'lucide-react';
 import { Avatar, Button, EmptyState, TagChip, Tooltip } from '../../design-system/components';
 import { WhatsAppIcon } from '../../design-system/icons';
@@ -39,6 +39,7 @@ type Props = {
   onSelect: (id: Id) => void;
   queues: OperationalQueue[];
   users: User[];
+  notice?: ReactNode;
 };
 
 export function ConversationList(props: Props) {
@@ -81,6 +82,8 @@ export function ConversationList(props: Props) {
           </>
         )}
       </header>
+
+      {props.notice}
 
       <div className={s.chips} role="group" aria-label="Filtros">
         {filters.map((f) => (

@@ -1091,3 +1091,28 @@ a.historyItem {
 a.historyItem:hover {
   border-color: var(--accent);
 }
+
+.availabilityNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--tone-warning-fg);
+  border-radius: var(--radius-md);
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-fg);
+  font-size: var(--text-xs);
+}
+.availabilityNotice span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.availabilityNotice strong {
+  font-size: var(--text-sm);
+}
+.availabilityNotice button {
+  height: 30px;
+  font-size: var(--text-xs);
+}

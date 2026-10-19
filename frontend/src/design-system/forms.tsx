@@ -1,4 +1,4 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { useId, type ComponentProps, type ReactNode } from 'react';
 import { cx } from '../lib/cx';
 import s from './forms.module.css';
 
@@ -18,15 +18,15 @@ export function Field({ label, hint, children, className }: FieldProps) {
   );
 }
 
-export function TextInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function TextInput({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cx(s.control, className)} {...props} />;
 }
 
-export function TextArea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function TextArea({ className, ...props }: ComponentProps<'textarea'>) {
   return <textarea className={cx(s.control, s.textarea, className)} {...props} />;
 }
 
-export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className, children, ...props }: ComponentProps<'select'>) {
   return (
     <select className={cx(s.control, s.select, className)} {...props}>
       {children}

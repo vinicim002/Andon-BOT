@@ -1,4 +1,4 @@
-import type { ConversationStatus, TicketPriority, TicketStatus } from './types';
+import type { Availability, ConversationStatus, TicketPriority, TicketStatus } from './types';
 
 export type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 
@@ -26,3 +26,11 @@ export const ticketPriority: Record<TicketPriority, { label: string; tone: Tone 
   high: { label: 'Alta', tone: 'warning' },
   urgent: { label: 'Urgente', tone: 'danger' },
 };
+
+export const availability: Record<Availability, { label: string; description: string }> = {
+  available: { label: 'Disponível', description: 'Recebe novos atendimentos pelo rodízio' },
+  paused: { label: 'Em pausa', description: 'Não recebe novos atendimentos' },
+  offline: { label: 'Ausente', description: 'Fora do expediente' },
+};
+
+export const pauseReasons = ['Almoço', 'Reunião', 'Intervalo', 'Treinamento'];

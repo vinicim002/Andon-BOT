@@ -20,9 +20,34 @@ export const router = createBrowserRouter([
       { path: 'tickets/:ticketId', lazy: () => import('../features/tickets/TicketDetailPage').then((m) => ({ Component: m.TicketDetailPage })) },
       { path: 'contatos', lazy: () => import('../features/contacts/ContactsPage').then((m) => ({ Component: m.ContactsPage })) },
       { path: 'painel', element: <PlaceholderPage title="Painel" description="Indicadores da operação em tempo real." /> },
-      { path: 'filas', element: <PlaceholderPage title="Filas" description="Filas operacionais, membros e políticas de roteamento." /> },
+      { path: 'filas', element: <Navigate to="/configuracoes/filas" replace /> },
       { path: 'workflows', element: <PlaceholderPage title="Workflows" description="Automações visuais com versão, publicação e rollback." /> },
-      { path: 'configuracoes', element: <PlaceholderPage title="Configurações" description="Canais, usuários, papéis e plano da empresa." /> },
+      {
+        path: 'configuracoes',
+        lazy: () => import('../features/settings/SettingsLayout').then((m) => ({ Component: m.SettingsLayout })),
+        children: [
+          { index: true, element: <Navigate to="filas" replace /> },
+          { path: 'filas', lazy: () => import('../features/settings/QueuesSettings').then((m) => ({ Component: m.QueuesSettings })) },
+          {
+            path: 'respostas-rapidas',
+            lazy: () => import('../features/settings/QuickRepliesSettings').then((m) => ({ Component: m.QuickRepliesSettings })),
+          },
+          {
+            path: 'usuarios',
+            lazy: () =>
+              import('../features/settings/SoonSection').then((m) => ({
+                element: <m.SoonSection title="Usuários e papéis" description="Convites, papéis e permissões de acesso da equipe." />,
+              })),
+          },
+          {
+            path: 'canais',
+            lazy: () =>
+              import('../features/settings/SoonSection').then((m) => ({
+                element: <m.SoonSection title="Canais" description="Números de WhatsApp conectados pela Cloud API e, depois, webchat e voz." />,
+              })),
+          },
+        ],
+      },
       { path: '*', element: <PlaceholderPage title="Página não encontrada" description="Verifique o endereço acessado." /> },
     ],
   },

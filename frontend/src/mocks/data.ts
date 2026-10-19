@@ -16,12 +16,11 @@ import type {
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const minutesFromNow = (m: number) => minutesAgo(-m);
 
-export const currentUser: User = { id: 'u1', name: 'Ana Souza', email: 'ana@exemplo.com', online: true };
-
 export const users: User[] = [
-  currentUser,
-  { id: 'u2', name: 'Bruno Lima', email: 'bruno@exemplo.com', online: true },
-  { id: 'u3', name: 'Carla Mendes', email: 'carla@exemplo.com', online: false },
+  { id: 'u1', name: 'Ana Souza', email: 'ana@exemplo.com', availability: 'available' },
+  { id: 'u2', name: 'Bruno Lima', email: 'bruno@exemplo.com', availability: 'available' },
+  { id: 'u3', name: 'Carla Mendes', email: 'carla@exemplo.com', availability: 'offline' },
+  { id: 'u4', name: 'Diego Rocha', email: 'diego@exemplo.com', availability: 'paused', pauseReason: 'Almoço' },
 ];
 
 const tags: Record<string, Tag> = {
@@ -41,9 +40,9 @@ export const endpoints: ChannelEndpoint[] = [
 ];
 
 export const queues: OperationalQueue[] = [
-  { id: 'q1', name: 'Comercial', color: 'green', routingPolicy: 'round_robin', memberIds: ['u1', 'u2'] },
-  { id: 'q2', name: 'Suporte', color: 'blue', routingPolicy: 'round_robin', memberIds: ['u1', 'u3'] },
-  { id: 'q3', name: 'Financeiro', color: 'purple', routingPolicy: 'manual', memberIds: ['u3'] },
+  { id: 'q1', name: 'Comercial', color: 'green', routingPolicy: 'round_robin', memberIds: ['u1', 'u2', 'u4'], endpointIds: ['e1', 'e2'], isDefault: true },
+  { id: 'q2', name: 'Suporte', color: 'blue', routingPolicy: 'round_robin', memberIds: ['u1', 'u3'], endpointIds: ['e1'], isDefault: false },
+  { id: 'q3', name: 'Financeiro', color: 'purple', routingPolicy: 'manual', memberIds: ['u3'], endpointIds: ['e2'], isDefault: false },
 ];
 
 export const contacts: Contact[] = [

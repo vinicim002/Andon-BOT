@@ -91,8 +91,14 @@
   border-radius: var(--radius-full);
   background: var(--text-muted);
 }
-.online {
-  background: var(--tone-success-fg);
+.presence-available {
+  background: var(--color-success);
+}
+.presence-paused {
+  background: var(--color-warning);
+}
+.presence-offline {
+  background: var(--text-muted);
 }
 
 /* Estados de tela: carregando, vazio, erro */

@@ -3,13 +3,17 @@
 // Toda mutação avisa as consultas abertas (notifyChange), como a invalidação de cache fará depois.
 import * as server from '../mocks/server';
 import type {
+  Availability,
+  ChannelEndpoint,
   Contact,
   Conversation,
   Id,
   Message,
   NewTicket,
   OperationalQueue,
+  QueueInput,
   QuickReply,
+  QuickReplyInput,
   Tag,
   TagColor,
   Ticket,
@@ -56,6 +60,10 @@ export const api = {
   },
 
   users: (): Promise<User[]> => delay(db.users),
+  endpoints: (): Promise<ChannelEndpoint[]> => delay(db.endpoints),
+  // Devolve quantas conversas o rodízio entregou a quem ficou disponível.
+  setAvailability: (userId: Id, availability: Availability, pauseReason?: string) =>
+    mutate(() => server.setAvailability(userId, availability, pauseReason)),
   queues: (): Promise<OperationalQueue[]> => delay(db.queues),
   tags: (): Promise<Tag[]> => delay(db.tags),
   quickReplies: (): Promise<QuickReply[]> => delay(db.quickReplies),
@@ -93,4 +101,13 @@ export const api = {
   updateTicket: (ticketId: Id, patch: { status?: TicketStatus; priority?: TicketPriority; assigneeId?: Id }, actorId: Id) =>
     mutate(() => server.updateTicket(ticketId, patch, actorId)),
   commentTicket: (ticketId: Id, body: string, actorId: Id) => mutate(() => server.commentTicket(ticketId, body, actorId)),
+
+  createQueue: (input: QueueInput) => mutate(() => server.createQueue(input)),
+  updateQueue: (queueId: Id, input: QueueInput) => mutate(() => server.updateQueue(queueId, input)),
+  // Devolve quantas conversas foram movidas para a fila padrão.
+  deleteQueue: (queueId: Id) => mutate(() => server.deleteQueue(queueId)),
+
+  createQuickReply: (input: QuickReplyInput) => mutate(() => server.createQuickReply(input)),
+  updateQuickReply: (replyId: Id, input: QuickReplyInput) => mutate(() => server.updateQuickReply(replyId, input)),
+  deleteQuickReply: (replyId: Id) => mutate(() => server.deleteQuickReply(replyId)),
 };

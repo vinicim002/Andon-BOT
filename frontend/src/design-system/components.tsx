@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { Tooltip as RadixTooltip } from 'radix-ui';
 import { AlertTriangle, Inbox, LoaderCircle } from 'lucide-react';
 import type { Tone } from '../domain/labels';
-import type { TagColor } from '../domain/types';
+import type { Availability, TagColor } from '../domain/types';
 import { cx } from '../lib/cx';
 import s from './components.module.css';
 
@@ -64,13 +64,13 @@ function paletteFor(name: string) {
 type AvatarProps = {
   name: string;
   size?: number;
-  online?: boolean;
+  presence?: Availability;
   // Selo no canto inferior (ex.: canal de origem).
   badge?: ReactNode;
   ring?: boolean;
 };
 
-export function Avatar({ name, size = 32, online, badge, ring }: AvatarProps) {
+export function Avatar({ name, size = 32, presence, badge, ring }: AvatarProps) {
   return (
     <span
       className={cx(s.avatar, s[paletteFor(name)], ring && s.avatarRing)}
@@ -78,7 +78,7 @@ export function Avatar({ name, size = 32, online, badge, ring }: AvatarProps) {
       aria-hidden
     >
       {initials(name)}
-      {online !== undefined && <span className={cx(s.presence, online && s.online)} />}
+      {presence && <span className={cx(s.presence, s[`presence-${presence}`])} />}
       {badge && <span className={s.avatarBadge}>{badge}</span>}
     </span>
   );
