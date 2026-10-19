@@ -1,26 +1,27 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { DropdownMenu } from 'radix-ui';
 import { Bell, Check, LayoutDashboard, LogOut, MessagesSquare, Moon, Settings, Sun, Ticket, Users, Workflow, type LucideIcon } from 'lucide-react';
 import { api } from '../../api';
-import { useQuery } from '../../api/useQuery';
+import { useCurrentUser } from '../../app/permissions';
 import { useSession } from '../../app/useSession';
 import { useTheme } from '../../app/theme';
 import { BrandSymbol } from '../../design-system/BrandSymbol';
 import { Avatar, Tooltip, TooltipProvider } from '../../design-system/components';
 import { useToast } from '../../design-system/useToast';
 import { availability as availabilityLabels, pauseReasons } from '../../domain/labels';
-import type { Availability, User } from '../../domain/types';
+import type { Availability, Permission, User } from '../../domain/types';
 import { cx } from '../../lib/cx';
 import s from './AppShell.module.css';
 
-type NavItem = { to: string; label: string; icon: LucideIcon; badge?: number };
+type NavItem = { to: string; label: string; icon: LucideIcon; badge?: number; permission?: Permission };
 
 // Grupos separados por divisória, como na referência: operação, cadastro, automação/gestão.
 const navigation: NavItem[][] = [
   [{ to: '/inbox', label: 'Atendimentos', icon: MessagesSquare }],
   [
-    { to: '/tickets', label: 'Tickets', icon: Ticket },
-    { to: '/contatos', label: 'Contatos', icon: Users },
+    { to: '/tickets', label: 'Tickets', icon: Ticket, permission: 'tickets.view' },
+    { to: '/contatos', label: 'Contatos', icon: Users, permission: 'contacts.view' },
   ],
   [
     { to: '/workflows', label: 'Workflows', icon: Workflow },
@@ -44,9 +45,19 @@ function RailLink({ item }: { item: NavItem }) {
 
 export function AppShell() {
   const { theme, toggleTheme } = useTheme();
-  const { user: sessionUser } = useSession();
-  // A disponibilidade muda durante o uso; por isso o usuário vem da API, não da sessão.
-  const me = useQuery(api.users).data?.find((u) => u.id === sessionUser?.id);
+  const { signOut } = useSession();
+  const navigate = useNavigate();
+  // Disponibilidade, papel e status mudam durante o uso; por isso o usuário vem da API, não da sessão.
+  const { me, can } = useCurrentUser();
+  const canSettings = can('settings.queues') || can('settings.quick_replies') || can('settings.users');
+
+  // Acesso desativado enquanto a pessoa estava logada: sai na hora.
+  useEffect(() => {
+    if (me && me.status !== 'active') {
+      signOut();
+      navigate('/login', { replace: true });
+    }
+  }, [me, signOut, navigate]);
 
   return (
     <TooltipProvider>
@@ -61,13 +72,15 @@ export function AppShell() {
             </button>
           </Tooltip>
 
-          {navigation.map((group, index) => (
-            <div key={index} className={s.railGroup}>
-              {group.map((item) => (
-                <RailLink key={item.to} item={item} />
-              ))}
-            </div>
-          ))}
+          {navigation
+            .map((group) => group.filter((item) => !item.permission || can(item.permission)))
+            .map((group, index) => (
+              <div key={index} className={s.railGroup}>
+                {group.map((item) => (
+                  <RailLink key={item.to} item={item} />
+                ))}
+              </div>
+            ))}
 
           <div className={s.railBottom}>
             <Tooltip content={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}>
@@ -75,7 +88,7 @@ export function AppShell() {
                 {theme === 'dark' ? <Sun aria-hidden /> : <Moon aria-hidden />}
               </button>
             </Tooltip>
-            <RailLink item={{ to: '/configuracoes', label: 'Configurações', icon: Settings }} />
+            {canSettings && <RailLink item={{ to: '/configuracoes', label: 'Configurações', icon: Settings }} />}
             {me && <AccountMenu me={me} />}
           </div>
         </nav>

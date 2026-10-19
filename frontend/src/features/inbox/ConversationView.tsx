@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import { DropdownMenu } from 'radix-ui';
-import { ArrowRightLeft, Bot, BotOff, Camera, CheckCircle2, Forward, MoreHorizontal, Phone, RotateCcw, Ticket, UserCheck } from 'lucide-react';
+import { ArrowRightLeft, Bot, BotOff, Camera, CheckCircle2, Forward, Lock, MoreHorizontal, Phone, RotateCcw, Ticket, UserCheck } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { BrandSymbol } from '../../design-system/BrandSymbol';
@@ -22,8 +22,10 @@ type Props = {
   me: User;
   quickReplies: QuickReply[];
   onAssign: () => void;
-  onTransfer: () => void;
-  onOpenTicket: () => void;
+  canReply: boolean;
+  // Ausentes quando o papel não permite: a opção some do menu.
+  onTransfer?: () => void;
+  onOpenTicket?: () => void;
   onToggleBot: () => void;
   onResolve: () => void;
   onReopen: () => void;
@@ -94,9 +96,11 @@ export function ConversationView(props: Props) {
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
-                <DropdownMenu.Item className={s.menuItem} disabled={resolved} onSelect={props.onTransfer}>
-                  <ArrowRightLeft aria-hidden /> Transferir…
-                </DropdownMenu.Item>
+                {props.onTransfer && (
+                  <DropdownMenu.Item className={s.menuItem} disabled={resolved} onSelect={props.onTransfer}>
+                    <ArrowRightLeft aria-hidden /> Transferir…
+                  </DropdownMenu.Item>
+                )}
                 <DropdownMenu.Item className={s.menuItem} disabled={resolved} onSelect={props.onToggleBot}>
                   {c.botPaused ? <Bot aria-hidden /> : <BotOff aria-hidden />}
                   {c.botPaused ? 'Retomar bot' : 'Pausar bot'}
@@ -109,9 +113,11 @@ export function ConversationView(props: Props) {
                     </Link>
                   </DropdownMenu.Item>
                 ) : (
-                  <DropdownMenu.Item className={s.menuItem} onSelect={props.onOpenTicket}>
-                    <Ticket aria-hidden /> Abrir ticket…
-                  </DropdownMenu.Item>
+                  props.onOpenTicket && (
+                    <DropdownMenu.Item className={s.menuItem} onSelect={props.onOpenTicket}>
+                      <Ticket aria-hidden /> Abrir ticket…
+                    </DropdownMenu.Item>
+                  )
                 )}
               </DropdownMenu.Content>
             </DropdownMenu.Portal>
@@ -149,6 +155,10 @@ export function ConversationView(props: Props) {
           <Button variant="primary" onClick={props.onAssign}>
             Assumir atendimento
           </Button>
+        </div>
+      ) : !props.canReply ? (
+        <div className={s.composerNotice}>
+          <Lock aria-hidden /> Seu papel permite acompanhar este atendimento, mas não responder.
         </div>
       ) : (
         <Composer onSend={props.onSend} windowClosed={windowClosed} quickReplies={props.quickReplies} contactName={c.contact.name} />

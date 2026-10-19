@@ -34,8 +34,10 @@ export function LoginPage() {
       await signIn(email.trim(), password);
       navigate(from, { replace: true });
     } catch (failure) {
-      // Mesma mensagem para usuário inexistente e senha errada, de propósito.
-      setError(failure instanceof ApiError && failure.status === 401 ? failure.message : 'Não foi possível entrar agora. Tente novamente em instantes.');
+      // 401: mesma mensagem para usuário inexistente e senha errada, de propósito.
+      // 403: conta existe mas não pode entrar (desativada, convite pendente) — a API explica o motivo.
+      const known = failure instanceof ApiError && (failure.status === 401 || failure.status === 403);
+      setError(known ? failure.message : 'Não foi possível entrar agora. Tente novamente em instantes.');
     } finally {
       setSubmitting(false);
     }

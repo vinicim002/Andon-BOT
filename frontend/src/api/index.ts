@@ -10,10 +10,13 @@ import type {
   Id,
   Message,
   NewTicket,
+  InviteInput,
   OperationalQueue,
   QueueInput,
   QuickReply,
   QuickReplyInput,
+  Role,
+  RoleInput,
   Tag,
   TagColor,
   Ticket,
@@ -45,19 +48,32 @@ async function mutate<T>(action: () => T): Promise<T> {
     notifyChange();
     return result;
   } catch (error) {
-    throw new ApiError(error instanceof Error ? error.message : 'Erro inesperado.', 400);
+    const status = error instanceof server.AccessError ? error.status : 400;
+    throw new ApiError(error instanceof Error ? error.message : 'Erro inesperado.', status);
   }
 }
 
 const { db } = server;
 
 export const api = {
-  // Mock: qualquer e-mail com senha de 4+ caracteres entra como a usuária de demonstração.
+  // Mock: entra com o e-mail de qualquer usuário ativo e uma senha de 4+ caracteres.
   signIn: async (email: string, password: string): Promise<User> => {
-    await delay(null, 500);
-    if (password.length < 4) throw new ApiError('Usuário ou senha incorretos.', 401);
-    return { ...db.users[0], email };
+    await delay(null, 400);
+    return mutate(() => server.authenticate(email, password));
   },
+  findInvite: (token: string) => delay(server.findInvite(token)),
+  acceptInvite: (token: string, name: string, password: string) => mutate(() => server.acceptInvite(token, name, password)),
+
+  roles: (): Promise<Role[]> => delay(db.roles),
+  invite: (input: InviteInput, actorId: Id) => mutate(() => server.invite(input, actorId)),
+  resendInvite: (userId: Id, actorId: Id) => mutate(() => server.resendInvite(userId, actorId)),
+  revokeInvite: (userId: Id) => mutate(() => server.revokeInvite(userId)),
+  updateUser: (userId: Id, input: { roleId: Id; queueIds: Id[] }) => mutate(() => server.updateUser(userId, input)),
+  // Devolve quantos atendimentos voltaram para a fila (ao desativar).
+  setUserStatus: (userId: Id, status: 'active' | 'disabled', actorId: Id) => mutate(() => server.setUserStatus(userId, status, actorId)),
+  createRole: (input: RoleInput) => mutate(() => server.createRole(input)),
+  updateRole: (roleId: Id, input: RoleInput) => mutate(() => server.updateRole(roleId, input)),
+  deleteRole: (roleId: Id) => mutate(() => server.deleteRole(roleId)),
 
   users: (): Promise<User[]> => delay(db.users),
   endpoints: (): Promise<ChannelEndpoint[]> => delay(db.endpoints),

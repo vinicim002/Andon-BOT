@@ -18,12 +18,51 @@ export type ChannelType = 'whatsapp' | 'webchat' | 'voice';
 // Disponibilidade do atendente: só quem está "available" recebe atendimentos pelo rodízio.
 export type Availability = 'available' | 'paused' | 'offline';
 
+export type UserStatus = 'active' | 'invited' | 'disabled';
+
 export interface User {
   id: Id;
   name: string;
   email: string;
+  roleId: Id;
+  status: UserStatus;
   availability: Availability;
   pauseReason?: string;
+  lastSeenAt?: IsoDateTime;
+  // Convite pendente: link de uso único com validade. Some quando a pessoa ativa o acesso.
+  invite?: { token: string; expiresAt: IsoDateTime; invitedBy: Id };
+}
+
+// Permissões granulares; papéis são conjuntos delas (RBAC). O back-end valida cada ação —
+// no console elas só escondem ou desabilitam o que a pessoa não pode fazer.
+export type Permission =
+  | 'conversations.view_all'
+  | 'conversations.reply'
+  | 'conversations.transfer'
+  | 'tickets.view'
+  | 'tickets.manage'
+  | 'contacts.view'
+  | 'contacts.edit'
+  | 'settings.queues'
+  | 'settings.quick_replies'
+  | 'settings.users';
+
+export interface Role {
+  id: Id;
+  name: string;
+  description: string;
+  permissions: Permission[];
+  // Papel do sistema: não pode ser editado nem excluído (garante que sempre exista um administrador).
+  system: boolean;
+}
+
+export type RoleInput = Omit<Role, 'id' | 'system'>;
+
+export interface InviteInput {
+  name: string;
+  email: string;
+  roleId: Id;
+  queueIds: Id[];
 }
 
 export type TagColor = 'blue' | 'green' | 'orange' | 'red' | 'purple' | 'cyan';

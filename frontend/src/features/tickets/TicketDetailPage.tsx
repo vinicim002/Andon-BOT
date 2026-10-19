@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle2, Copy, Flag, Lock, MessageSquareText, MessagesSquare, Plus, RotateCcw, UserRound, ArrowRightLeft } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
-import { useSession } from '../../app/useSession';
+import { useCurrentUser } from '../../app/permissions';
 import { Avatar, Badge, Button, ErrorState, LoadingState, Page } from '../../design-system/components';
 import { Field, Select, TextArea } from '../../design-system/forms';
 import { Timeline, type TimelineItem } from '../../design-system/Timeline';
@@ -15,23 +15,23 @@ import s from './Tickets.module.css';
 
 export function TicketDetailPage() {
   const { ticketId = '' } = useParams();
-  const { user } = useSession();
+  const { me: current, can } = useCurrentUser();
   const ticket = useQuery(() => api.ticket(ticketId), ticketId);
   const events = useQuery(() => api.ticketEvents(ticketId), ticketId);
   const reference = useQuery(() => Promise.all([api.users(), api.contacts()]));
 
   if (ticket.status === 'error') return <Page><BackLink /><ErrorState error={ticket.error} /></Page>;
-  if (ticket.status === 'loading' || events.status !== 'success' || reference.status !== 'success') return <LoadingState />;
+  if (ticket.status === 'loading' || events.status !== 'success' || reference.status !== 'success' || !current) return <LoadingState />;
 
   const [users, contacts] = reference.data;
-  const me = users.find((u) => u.id === user?.id) ?? users[0];
   return (
     <TicketDetail
       ticket={ticket.data}
       events={events.data}
       users={users}
       contact={contacts.find((c) => c.id === ticket.data.contactId)}
-      me={me}
+      me={current}
+      canManage={can('tickets.manage')}
     />
   );
 }
@@ -44,9 +44,9 @@ function BackLink() {
   );
 }
 
-type DetailProps = { ticket: Ticket; events: TicketEvent[]; users: User[]; contact?: Contact; me: User };
+type DetailProps = { ticket: Ticket; events: TicketEvent[]; users: User[]; contact?: Contact; me: User; canManage: boolean };
 
-function TicketDetail({ ticket, events, users, contact, me }: DetailProps) {
+function TicketDetail({ ticket, events, users, contact, me, canManage }: DetailProps) {
   const toast = useToast();
   const userName = (id?: Id) => users.find((u) => u.id === id)?.name;
   const resolved = ticket.status === 'resolved' || ticket.status === 'closed';
@@ -92,15 +92,16 @@ function TicketDetail({ ticket, events, users, contact, me }: DetailProps) {
               <MessagesSquare aria-hidden /> Abrir conversa
             </Link>
           )}
-          {resolved ? (
-            <Button icon={<RotateCcw />} onClick={() => update({ status: 'in_progress' }, 'Ticket reaberto.')}>
-              Reabrir
-            </Button>
-          ) : (
-            <Button variant="primary" icon={<CheckCircle2 />} onClick={() => update({ status: 'resolved' }, 'Ticket resolvido.')}>
-              Resolver ticket
-            </Button>
-          )}
+          {canManage &&
+            (resolved ? (
+              <Button icon={<RotateCcw />} onClick={() => update({ status: 'in_progress' }, 'Ticket reaberto.')}>
+                Reabrir
+              </Button>
+            ) : (
+              <Button variant="primary" icon={<CheckCircle2 />} onClick={() => update({ status: 'resolved' }, 'Ticket resolvido.')}>
+                Resolver ticket
+              </Button>
+            ))}
         </div>
       </header>
 
@@ -116,7 +117,7 @@ function TicketDetail({ ticket, events, users, contact, me }: DetailProps) {
           <div className={s.panel}>
             <h2 className={s.panelTitle}>Histórico e auditoria</h2>
             <Timeline items={events.map((e) => toTimelineItem(e, userName))} formatAt={formatDateTime} />
-            <CommentBox ticketId={ticket.id} me={me} />
+            {canManage && <CommentBox ticketId={ticket.id} me={me} />}
           </div>
         </section>
 
@@ -126,7 +127,7 @@ function TicketDetail({ ticket, events, users, contact, me }: DetailProps) {
             <div className={s.properties}>
               <Field label="Status">
                 {(id) => (
-                  <Select id={id} value={ticket.status} onChange={(e) => update({ status: e.target.value as TicketStatus }, 'Status atualizado.')}>
+                  <Select id={id} value={ticket.status} disabled={!canManage} onChange={(e) => update({ status: e.target.value as TicketStatus }, 'Status atualizado.')}>
                     {Object.entries(ticketStatus).map(([value, { label }]) => (
                       <option key={value} value={value}>
                         {label}
@@ -137,7 +138,7 @@ function TicketDetail({ ticket, events, users, contact, me }: DetailProps) {
               </Field>
               <Field label="Prioridade">
                 {(id) => (
-                  <Select id={id} value={ticket.priority} onChange={(e) => update({ priority: e.target.value as TicketPriority }, 'Prioridade atualizada.')}>
+                  <Select id={id} value={ticket.priority} disabled={!canManage} onChange={(e) => update({ priority: e.target.value as TicketPriority }, 'Prioridade atualizada.')}>
                     {Object.entries(ticketPriority).map(([value, { label }]) => (
                       <option key={value} value={value}>
                         {label}
@@ -151,6 +152,7 @@ function TicketDetail({ ticket, events, users, contact, me }: DetailProps) {
                   <Select
                     id={id}
                     value={ticket.assigneeId ?? ''}
+                    disabled={!canManage}
                     onChange={(e) => update({ assigneeId: e.target.value || undefined }, 'Responsável atualizado.')}
                   >
                     <option value="">Sem responsável</option>

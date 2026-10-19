@@ -5,6 +5,10 @@
 // fechar a aba volta aos dados iniciais. Não é persistência de verdade.
 import type {
   Availability,
+  InviteInput,
+  Role,
+  RoleInput,
+  User,
   Contact,
   Conversation,
   Id,
@@ -23,10 +27,11 @@ import type {
 import * as seed from './data';
 
 // Versão no nome: mudou o formato dos dados, a aba descarta o estado antigo.
-const STORAGE_KEY = 'andon-mock-db-v2';
+const STORAGE_KEY = 'andon-mock-db-v3';
 
 const initial = {
   users: [...seed.users],
+  roles: [...seed.roles],
   queues: [...seed.queues],
   endpoints: seed.endpoints,
   contacts: [...seed.contacts],
@@ -122,7 +127,7 @@ export function distribute(queueId: Id) {
   let assigned = 0;
   for (const conversation of waiting) {
     const candidates = db.users
-      .filter((u) => queue.memberIds.includes(u.id) && u.availability === 'available')
+      .filter((u) => queue.memberIds.includes(u.id) && u.status === 'active' && u.availability === 'available')
       .sort((a, b) => activeLoad(a.id) - activeLoad(b.id) || a.name.localeCompare(b.name));
     if (candidates.length === 0) break;
     patchConversation(conversation.id, { assigneeId: candidates[0].id, status: 'in_progress', botPaused: true });
@@ -330,4 +335,163 @@ export function updateTicket(ticketId: Id, patch: TicketPatch, actorId: Id) {
 export function commentTicket(ticketId: Id, body: string, actorId: Id) {
   ticketEvent({ ticketId, type: 'comment', actorUserId: actorId, body });
   db.tickets = db.tickets.map((t) => (t.id === ticketId ? { ...t, updatedAt: now() } : t));
+}
+
+// ---------- Acesso: login, usuários, convites e papéis ----------
+
+export class AccessError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+const inviteToken = () => crypto.randomUUID().replace(/-/g, '');
+const isAdmin = (u: User) => db.roles.find((r) => r.id === u.roleId)?.system === true;
+const activeAdmins = () => db.users.filter((u) => u.status === 'active' && isAdmin(u));
+
+function userById(userId: Id) {
+  const user = db.users.find((u) => u.id === userId);
+  if (!user) throw new NotFound('Usuário não encontrado.');
+  return user;
+}
+
+function patchUser(userId: Id, patch: Partial<User>) {
+  db.users = db.users.map((u) => (u.id === userId ? { ...u, ...patch } : u));
+}
+
+function setMemberships(userId: Id, queueIds: Id[]) {
+  db.queues = db.queues.map((q) => {
+    const member = q.memberIds.includes(userId);
+    const wanted = queueIds.includes(q.id);
+    if (member === wanted) return q;
+    return { ...q, memberIds: wanted ? [...q.memberIds, userId] : q.memberIds.filter((id) => id !== userId) };
+  });
+}
+
+// Mock: qualquer senha com 4+ caracteres vale. A mensagem de erro é a mesma para e-mail
+// inexistente e senha errada, de propósito (não revela quem tem conta).
+export function authenticate(email: string, password: string): User {
+  const user = db.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+  if (!user || password.length < 4) throw new AccessError('Usuário ou senha incorretos.', 401);
+  if (user.status === 'disabled') throw new AccessError('Seu acesso foi desativado. Fale com o administrador da empresa.', 403);
+  if (user.status === 'invited') throw new AccessError('Ative seu acesso pelo link do convite que você recebeu.', 403);
+  patchUser(user.id, { lastSeenAt: now() });
+  return userById(user.id);
+}
+
+export function invite(input: InviteInput, actorId: Id) {
+  const email = input.email.trim().toLowerCase();
+  if (!input.name.trim()) throw new Error('Informe o nome.');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Informe um e-mail válido.');
+  if (db.users.some((u) => u.email.toLowerCase() === email)) throw new Error('Já existe um usuário com esse e-mail.');
+  if (!db.roles.some((r) => r.id === input.roleId)) throw new Error('Escolha um papel.');
+  const user: User = {
+    id: id(),
+    name: input.name.trim(),
+    email,
+    roleId: input.roleId,
+    status: 'invited',
+    availability: 'offline',
+    invite: { token: inviteToken(), expiresAt: new Date(Date.now() + 7 * DAY).toISOString(), invitedBy: actorId },
+  };
+  db.users = [...db.users, user];
+  setMemberships(user.id, input.queueIds);
+  return user;
+}
+
+// Gera um link novo (o anterior deixa de valer) e renova a validade.
+export function resendInvite(userId: Id, actorId: Id) {
+  const user = userById(userId);
+  if (user.status !== 'invited') throw new Error('Este usuário já ativou o acesso.');
+  patchUser(userId, { invite: { token: inviteToken(), expiresAt: new Date(Date.now() + 7 * DAY).toISOString(), invitedBy: actorId } });
+  return userById(userId);
+}
+
+export function revokeInvite(userId: Id) {
+  const user = userById(userId);
+  if (user.status !== 'invited') throw new Error('Só convites pendentes podem ser revogados.');
+  setMemberships(userId, []);
+  db.users = db.users.filter((u) => u.id !== userId);
+}
+
+export function findInvite(token: string) {
+  const user = db.users.find((u) => u.status === 'invited' && u.invite?.token === token);
+  if (!user?.invite) return undefined;
+  return { name: user.name, email: user.email, expired: new Date(user.invite.expiresAt).getTime() < Date.now() };
+}
+
+export function acceptInvite(token: string, name: string, password: string): User {
+  const user = db.users.find((u) => u.status === 'invited' && u.invite?.token === token);
+  if (!user?.invite) throw new AccessError('Este convite não existe ou já foi usado.', 404);
+  if (new Date(user.invite.expiresAt).getTime() < Date.now()) throw new AccessError('Este convite expirou. Peça um novo ao administrador.', 410);
+  if (password.length < 8) throw new AccessError('A senha precisa ter pelo menos 8 caracteres.', 400);
+  patchUser(user.id, { name: name.trim() || user.name, status: 'active', invite: undefined, availability: 'available', lastSeenAt: now() });
+  return userById(user.id);
+}
+
+export function updateUser(userId: Id, input: { roleId: Id; queueIds: Id[] }) {
+  const user = userById(userId);
+  const nextRole = db.roles.find((r) => r.id === input.roleId);
+  if (!nextRole) throw new Error('Escolha um papel.');
+  if (isAdmin(user) && !nextRole.system && user.status === 'active' && activeAdmins().length === 1) {
+    throw new Error('A empresa precisa de pelo menos um administrador ativo.');
+  }
+  patchUser(userId, { roleId: input.roleId });
+  setMemberships(userId, input.queueIds);
+}
+
+// Desativar tira o acesso na hora e devolve os atendimentos da pessoa para as filas.
+export function setUserStatus(userId: Id, status: 'active' | 'disabled', actorId: Id) {
+  const user = userById(userId);
+  if (status === 'disabled') {
+    if (userId === actorId) throw new Error('Você não pode desativar o próprio acesso.');
+    if (isAdmin(user) && activeAdmins().length === 1) throw new Error('A empresa precisa de pelo menos um administrador ativo.');
+    patchUser(userId, { status: 'disabled', availability: 'offline', pauseReason: undefined });
+    const orphaned = db.conversations.filter((c) => c.assigneeId === userId && ACTIVE.includes(c.status));
+    for (const c of orphaned) {
+      const queueId = c.queueId ?? db.queues.find((q) => q.isDefault)?.id;
+      patchConversation(c.id, { assigneeId: undefined, status: 'queued', queueId });
+      systemMessage(c.id, `Acesso de ${user.name} desativado; atendimento devolvido para a fila`);
+    }
+    new Set(orphaned.map((c) => db.conversations.find((x) => x.id === c.id)?.queueId)).forEach((q) => q && distribute(q));
+    return orphaned.length;
+  }
+  if (user.status !== 'disabled') throw new Error('Este usuário não está desativado.');
+  patchUser(userId, { status: 'active' });
+  return 0;
+}
+
+function validateRole(input: RoleInput, ignoreId?: Id) {
+  if (!input.name.trim()) throw new Error('Informe o nome do papel.');
+  if (db.roles.some((r) => r.id !== ignoreId && r.name.toLowerCase() === input.name.trim().toLowerCase())) {
+    throw new Error('Já existe um papel com esse nome.');
+  }
+}
+
+export function createRole(input: RoleInput): Role {
+  validateRole(input);
+  const role: Role = { ...input, name: input.name.trim(), description: input.description.trim(), id: id(), system: false };
+  db.roles = [...db.roles, role];
+  return role;
+}
+
+export function updateRole(roleId: Id, input: RoleInput) {
+  const role = db.roles.find((r) => r.id === roleId);
+  if (!role) throw new NotFound('Papel não encontrado.');
+  if (role.system) throw new Error('O papel Administrador não pode ser alterado.');
+  validateRole(input, roleId);
+  db.roles = db.roles.map((r) => (r.id === roleId ? { ...r, ...input, name: input.name.trim(), description: input.description.trim() } : r));
+}
+
+export function deleteRole(roleId: Id) {
+  const role = db.roles.find((r) => r.id === roleId);
+  if (!role) throw new NotFound('Papel não encontrado.');
+  if (role.system) throw new Error('O papel Administrador não pode ser excluído.');
+  // Conta também desativados: se forem reativados, precisam continuar com um papel válido.
+  const inUse = db.users.filter((u) => u.roleId === roleId).length;
+  if (inUse) throw new Error(`${inUse} usuário(s) usam este papel. Troque o papel deles antes de excluir.`);
+  db.roles = db.roles.filter((r) => r.id !== roleId);
 }

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { Plus, Search } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
-import { useSession } from '../../app/useSession';
+import { useCurrentUser } from '../../app/permissions';
 import { Avatar, Badge, Button, DataTable, EmptyState, ErrorState, LoadingState, Page, PageHeader } from '../../design-system/components';
 import { TextInput } from '../../design-system/forms';
 import { useToast } from '../../design-system/useToast';
@@ -28,7 +28,7 @@ const filters: { value: StatusFilter; label: string }[] = [
 const isActive = (status: TicketStatus) => status !== 'resolved' && status !== 'closed';
 
 export function TicketsPage() {
-  const { user } = useSession();
+  const { me: current, can } = useCurrentUser();
   const toast = useToast();
   const navigate = useNavigate();
   const tickets = useQuery(api.tickets);
@@ -40,7 +40,7 @@ export function TicketsPage() {
 
   const contactById = useMemo(() => new Map(contacts.data?.map((c) => [c.id, c])), [contacts.data]);
   const userById = useMemo(() => new Map(users.data?.map((u) => [u.id, u])), [users.data]);
-  const me = users.data?.find((u) => u.id === user?.id) ?? users.data?.[0];
+  const me = current;
 
   const visible = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -65,9 +65,11 @@ export function TicketsPage() {
         title="Tickets"
         description="Todo ticket tem um protocolo único e imutável."
         actions={
-          <Button variant="primary" icon={<Plus />} onClick={() => setCreating(true)} disabled={!me}>
-            Novo ticket
-          </Button>
+          can('tickets.manage') && (
+            <Button variant="primary" icon={<Plus />} onClick={() => setCreating(true)} disabled={!me}>
+              Novo ticket
+            </Button>
+          )
         }
       />
 

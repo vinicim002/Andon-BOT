@@ -22,7 +22,8 @@ type Props = {
   users: User[];
   ticket?: Ticket;
   onTagsChange: (tags: Tag[], message: string) => void;
-  onOpenTicket: () => void;
+  canEditContact: boolean;
+  onOpenTicket?: () => void;
 };
 
 export function ContextPanel(props: Props) {
@@ -44,7 +45,7 @@ export function ContextPanel(props: Props) {
   );
 }
 
-function About({ conversation: c, queues, users, ticket, onTagsChange, onOpenTicket }: Props) {
+function About({ conversation: c, queues, users, ticket, onTagsChange, canEditContact, onOpenTicket }: Props) {
   const { contact } = c;
   const toast = useToast();
   const now = useNow();
@@ -89,9 +90,11 @@ function About({ conversation: c, queues, users, ticket, onTagsChange, onOpenTic
                 {[contact.jobTitle, contact.organization].filter(Boolean).join(' • ')}
               </span>
             )}
-            <Button className={s.editContact} onClick={() => setDialog('contact')}>
-              Editar contato
-            </Button>
+            {canEditContact && (
+              <Button className={s.editContact} onClick={() => setDialog('contact')}>
+                Editar contato
+              </Button>
+            )}
           </div>
         </div>
         <dl className={s.fields}>
@@ -116,32 +119,35 @@ function About({ conversation: c, queues, users, ticket, onTagsChange, onOpenTic
             <TagChip
               key={tag.id}
               color={tag.color}
-              onRemove={() => onTagsChange(c.tags.filter((t) => t.id !== tag.id), `Etiqueta “${tag.name}” removida.`)}
+              onRemove={canEditContact ? () => onTagsChange(c.tags.filter((t) => t.id !== tag.id), `Etiqueta “${tag.name}” removida.`) : undefined}
             >
               {tag.name}
             </TagChip>
           ))}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <button type="button" className={s.addTag} aria-label="Adicionar etiqueta">
-                <Plus />
-              </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-              <DropdownMenu.Content className={s.menu} align="start" sideOffset={4}>
-                {unusedTags.map((tag) => (
-                  <DropdownMenu.Item key={tag.id} className={s.menuItem} onSelect={() => onTagsChange([...c.tags, tag], `Etiqueta “${tag.name}” aplicada.`)}>
-                    <span className={cx(s.queueDot, s[`queue-${tag.color}`])} aria-hidden />
-                    {tag.name}
+          {canEditContact && (
+            <DropdownMenu.Root>
+              <DropdownMenu.Trigger asChild>
+                <button type="button" className={s.addTag} aria-label="Adicionar etiqueta">
+                  <Plus />
+                </button>
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.Content className={s.menu} align="start" sideOffset={4}>
+                  {unusedTags.map((tag) => (
+                    <DropdownMenu.Item key={tag.id} className={s.menuItem} onSelect={() => onTagsChange([...c.tags, tag], `Etiqueta “${tag.name}” aplicada.`)}>
+                      <span className={cx(s.queueDot, s[`queue-${tag.color}`])} aria-hidden />
+                      {tag.name}
+                    </DropdownMenu.Item>
+                  ))}
+                  {unusedTags.length > 0 && <DropdownMenu.Separator className={s.menuSeparator} />}
+                  <DropdownMenu.Item className={s.menuItem} onSelect={() => setDialog('tag')}>
+                    <TagIcon aria-hidden /> Nova etiqueta…
                   </DropdownMenu.Item>
-                ))}
-                {unusedTags.length > 0 && <DropdownMenu.Separator className={s.menuSeparator} />}
-                <DropdownMenu.Item className={s.menuItem} onSelect={() => setDialog('tag')}>
-                  <TagIcon aria-hidden /> Nova etiqueta…
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-          </DropdownMenu.Root>
+                </DropdownMenu.Content>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Root>
+          )}
+          {!canEditContact && c.tags.length === 0 && <span className={s.emptyValue}>Nenhuma etiqueta</span>}
         </div>
       </Card>
 
@@ -157,10 +163,12 @@ function About({ conversation: c, queues, users, ticket, onTagsChange, onOpenTic
               <Link to={`/tickets/${ticket.id}`} className={s.protocolLink}>
                 #{ticket.protocol}
               </Link>
-            ) : (
+            ) : onOpenTicket ? (
               <Button className={s.inlineButton} icon={<TicketIcon />} onClick={onOpenTicket}>
                 Abrir ticket
               </Button>
+            ) : (
+              'Sem ticket'
             )}
           </Field>
           <Field label="Janela de conversa">

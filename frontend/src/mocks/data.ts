@@ -7,6 +7,7 @@ import type {
   Message,
   OperationalQueue,
   QuickReply,
+  Role,
   Tag,
   Ticket,
   TicketEvent,
@@ -16,11 +17,46 @@ import type {
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const minutesFromNow = (m: number) => minutesAgo(-m);
 
+export const roles: Role[] = [
+  {
+    id: 'r-admin',
+    name: 'Administrador',
+    description: 'Acesso total, inclusive usuários, papéis e configurações.',
+    permissions: [
+      'conversations.view_all', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
+      'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies', 'settings.users',
+    ],
+    system: true,
+  },
+  {
+    id: 'r-supervisor',
+    name: 'Supervisor',
+    description: 'Acompanha todos os atendimentos e cuida das filas e respostas rápidas.',
+    permissions: [
+      'conversations.view_all', 'conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage',
+      'contacts.view', 'contacts.edit', 'settings.queues', 'settings.quick_replies',
+    ],
+    system: false,
+  },
+  {
+    id: 'r-agent',
+    name: 'Atendente',
+    description: 'Atende as conversas das suas filas e cuida dos próprios tickets.',
+    permissions: ['conversations.reply', 'conversations.transfer', 'tickets.view', 'tickets.manage', 'contacts.view'],
+    system: false,
+  },
+];
+
 export const users: User[] = [
-  { id: 'u1', name: 'Ana Souza', email: 'ana@exemplo.com', availability: 'available' },
-  { id: 'u2', name: 'Bruno Lima', email: 'bruno@exemplo.com', availability: 'available' },
-  { id: 'u3', name: 'Carla Mendes', email: 'carla@exemplo.com', availability: 'offline' },
-  { id: 'u4', name: 'Diego Rocha', email: 'diego@exemplo.com', availability: 'paused', pauseReason: 'Almoço' },
+  { id: 'u1', name: 'Ana Souza', email: 'ana@exemplo.com', roleId: 'r-admin', status: 'active', availability: 'available', lastSeenAt: minutesAgo(0) },
+  { id: 'u2', name: 'Bruno Lima', email: 'bruno@exemplo.com', roleId: 'r-agent', status: 'active', availability: 'available', lastSeenAt: minutesAgo(3) },
+  { id: 'u3', name: 'Carla Mendes', email: 'carla@exemplo.com', roleId: 'r-supervisor', status: 'active', availability: 'offline', lastSeenAt: minutesAgo(60 * 15) },
+  { id: 'u4', name: 'Diego Rocha', email: 'diego@exemplo.com', roleId: 'r-agent', status: 'active', availability: 'paused', pauseReason: 'Almoço', lastSeenAt: minutesAgo(25) },
+  {
+    id: 'u5', name: 'Elisa Martins', email: 'elisa@exemplo.com', roleId: 'r-agent', status: 'invited', availability: 'offline',
+    invite: { token: 'demo-convite-elisa', expiresAt: minutesFromNow(60 * 24 * 6), invitedBy: 'u1' },
+  },
+  { id: 'u6', name: 'Fábio Teixeira', email: 'fabio@exemplo.com', roleId: 'r-agent', status: 'disabled', availability: 'offline', lastSeenAt: minutesAgo(60 * 24 * 40) },
 ];
 
 const tags: Record<string, Tag> = {

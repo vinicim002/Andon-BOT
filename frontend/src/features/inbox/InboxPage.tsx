@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
-import { useSession } from '../../app/useSession';
+import { useCurrentUser } from '../../app/permissions';
+import type { Permission } from '../../domain/types';
 import { Button, EmptyState, ErrorState, LoadingState } from '../../design-system/components';
 import { useToast } from '../../design-system/useToast';
 import type { Conversation, Id, OperationalQueue, QuickReply, Tag, Ticket, TransferTarget, User } from '../../domain/types';
@@ -15,19 +16,22 @@ import { TransferDialog } from './TransferDialog';
 import s from './Inbox.module.css';
 
 export function InboxPage() {
-  const { user } = useSession();
+  const { me: current, can } = useCurrentUser();
   const conversations = useQuery(api.conversations);
   const reference = useQuery(() => Promise.all([api.queues(), api.users(), api.tickets(), api.quickReplies()]));
 
-  if (conversations.status === 'loading' || reference.status === 'loading') return <LoadingState />;
+  if (conversations.status === 'loading' || reference.status === 'loading' || !current) return <LoadingState />;
   if (conversations.status === 'error') return <ErrorState error={conversations.error} />;
   if (reference.status === 'error') return <ErrorState error={reference.error} />;
 
   const [queues, users, tickets, quickReplies] = reference.data;
-  const me = users.find((u) => u.id === user?.id) ?? users[0];
-  return (
-    <Inbox conversations={conversations.data} queues={queues} users={users} tickets={tickets} quickReplies={quickReplies} me={me} />
-  );
+  const me = users.find((u) => u.id === current.id) ?? current;
+  // Sem "ver todos", a pessoa só enxerga os atendimentos dela e os das filas de que participa.
+  const myQueues = new Set(queues.filter((q) => q.memberIds.includes(me.id)).map((q) => q.id));
+  const allowed = can('conversations.view_all')
+    ? conversations.data
+    : conversations.data.filter((c) => c.assigneeId === me.id || (c.queueId !== undefined && myQueues.has(c.queueId)));
+  return <Inbox conversations={allowed} queues={queues} users={users} tickets={tickets} quickReplies={quickReplies} me={me} can={can} />;
 }
 
 type InboxProps = {
@@ -37,9 +41,10 @@ type InboxProps = {
   tickets: Ticket[];
   quickReplies: QuickReply[];
   me: User;
+  can: (permission: Permission) => boolean;
 };
 
-function Inbox({ conversations, queues, users, tickets, quickReplies, me }: InboxProps) {
+function Inbox({ conversations, queues, users, tickets, quickReplies, me, can }: InboxProps) {
   const toast = useToast();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -143,8 +148,9 @@ function Inbox({ conversations, queues, users, tickets, quickReplies, me }: Inbo
             me={me}
             quickReplies={quickReplies}
             onAssign={() => run(api.conversation.assign(selected.id, me.id), 'Atendimento assumido.')}
-            onTransfer={() => setDialog('transfer')}
-            onOpenTicket={() => setDialog('ticket')}
+            canReply={can('conversations.reply')}
+            onTransfer={can('conversations.transfer') ? () => setDialog('transfer') : undefined}
+            onOpenTicket={can('tickets.manage') ? () => setDialog('ticket') : undefined}
             onToggleBot={() =>
               run(api.conversation.setBotPaused(selected.id, !selected.botPaused, me.id), selected.botPaused ? 'Bot retomado.' : 'Bot pausado.')
             }
@@ -163,7 +169,8 @@ function Inbox({ conversations, queues, users, tickets, quickReplies, me }: Inbo
             users={users}
             ticket={tickets.find((t) => t.id === selected.ticketId)}
             onTagsChange={(tags: Tag[], message: string) => run(api.conversation.setTags(selected.id, tags), message)}
-            onOpenTicket={() => setDialog('ticket')}
+            canEditContact={can('contacts.edit')}
+            onOpenTicket={can('tickets.manage') ? () => setDialog('ticket') : undefined}
           />
 
           <TransferDialog
