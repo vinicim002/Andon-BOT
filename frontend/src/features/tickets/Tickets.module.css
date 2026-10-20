@@ -300,6 +300,10 @@
   .panel {
     padding: var(--space-4);
   }
+  /* No celular, status e responsável vêm antes do histórico longo para a operação não exigir rolagem. */
+  .sideColumn {
+    order: -1;
+  }
   .commentBox {
     gap: var(--space-2);
     margin-top: var(--space-4);

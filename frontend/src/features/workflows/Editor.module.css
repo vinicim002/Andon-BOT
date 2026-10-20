@@ -869,11 +869,26 @@
   .topActions {
     width: 100%;
     margin-left: 0;
-    overflow-x: auto;
-    padding-bottom: 2px;
+    justify-content: space-between;
+    gap: var(--space-2);
+    overflow: hidden;
   }
   .topActions > * {
     flex-shrink: 0;
+  }
+  /* Desfazer/refazer dependem de teclado e consumiam a largura destinada às ações principais. */
+  .topActions > button[aria-label^='Desfazer'],
+  .topActions > button[aria-label^='Refazer'] {
+    display: none;
+  }
+  .topActions > button:not([aria-label]) {
+    min-width: 0;
+  }
+  .topActions > span {
+    min-width: 0;
+  }
+  .topActions > span > button {
+    width: 100%;
   }
   .body {
     position: relative;
@@ -920,13 +935,13 @@
   }
   .inspector {
     z-index: 5;
-    max-height: 34%;
+    max-height: 30%;
     border-left: none;
   }
   .inspectorBody {
     padding: var(--space-3);
   }
   .controls {
-    margin-bottom: calc(34vh + var(--space-2));
+    margin-bottom: calc(30vh + var(--space-2));
   }
 }

@@ -59,7 +59,7 @@ export const roles: Role[] = [
 // Conta usada pelo time para entrar no console durante a descoberta. O atalho da tela de login
 // (só em desenvolvimento) preenche estas credenciais. A senha é fictícia: o servidor em memória
 // aceita qualquer senha com 4+ caracteres.
-export const demoAccess = { email: 'felipy@exemplo.com', password: 'andon2026' };
+export const demoAccess = { email: 'andon@andon.com', password: 'andon2026' };
 
 export const users: User[] = [
   {
