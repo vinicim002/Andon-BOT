@@ -175,7 +175,7 @@ function TicketDetail({ ticket, events, users, contact, me, canManage }: DetailP
                 <div>
                   <strong>{contact.name}</strong>
                   <span>{contact.phone}</span>
-                  {contact.organization && <span>{contact.organization}</span>}
+                  {contact.organization && <span>{contact.organization.name}</span>}
                 </div>
               </div>
             </div>

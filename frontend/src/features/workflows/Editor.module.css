@@ -227,6 +227,10 @@
 .run-ok {
   box-shadow: 0 0 0 3px rgba(45, 206, 137, 0.45);
 }
+/* Handoff da IA: o passo rodou e decidiu entregar para uma pessoa — nem sucesso, nem falha. */
+.run-warn {
+  box-shadow: 0 0 0 3px rgba(251, 176, 59, 0.5);
+}
 .run-error {
   box-shadow: 0 0 0 3px rgba(245, 54, 92, 0.5);
 }
@@ -467,6 +471,27 @@
 .checkRow strong {
   color: var(--text-primary);
   font-size: var(--text-sm);
+}
+/* Agrupador de campos do inspetor, sem a borda padrão do fieldset. */
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+.fieldLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+/* Lista de fontes: rolável, porque uma base grande não pode empurrar o resto do inspetor. */
+.checkList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
 }
 .issueList {
   display: flex;
@@ -721,6 +746,9 @@
 }
 .log-ok > svg {
   color: var(--tone-success-fg);
+}
+.log-warn > svg {
+  color: var(--tone-warning-fg);
 }
 .log-error > svg {
   color: var(--tone-danger-fg);

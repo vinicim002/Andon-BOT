@@ -19,6 +19,8 @@ import { useQuery } from '../../api/useQuery';
 import { useCurrentUser } from '../../app/permissions';
 import { Badge, Button, ErrorState, LoadingState, Tooltip, TooltipProvider } from '../../design-system/components';
 import { useToast } from '../../design-system/useToast';
+import type { AiPolicy, KnowledgeSource } from '../../domain/ai';
+import type { Integration } from '../../domain/integration';
 import type { ChannelEndpoint, OperationalQueue, Tag, User } from '../../domain/types';
 import type { NodeType, Workflow, WorkflowDefinition, WorkflowNode } from '../../domain/workflow';
 import { isTrigger, outputsOf, validateWorkflow } from '../../domain/workflowValidation';
@@ -41,26 +43,49 @@ export function WorkflowEditorPage() {
   const { workflowId = '' } = useParams();
   const { me } = useCurrentUser();
   const workflow = useQuery(() => api.workflow(workflowId), workflowId);
-  const refs = useQuery(() => Promise.all([api.queues(), api.tags(), api.endpoints(), api.users()]));
+  const refs = useQuery(() =>
+    Promise.all([api.queues(), api.tags(), api.endpoints(), api.users(), api.integrations(), api.knowledgeSources(), api.aiPolicy()]),
+  );
 
   if (workflow.status === 'error') return <ErrorState error={workflow.error} />;
   if (workflow.status === 'loading' || refs.status !== 'success' || !me) return <LoadingState />;
-  const [queues, tags, endpoints, users] = refs.data;
+  const [queues, tags, endpoints, users, integrations, sources, aiPolicy] = refs.data;
 
   return (
     <ReactFlowProvider>
       <TooltipProvider>
         {/* key: trocar de workflow recomeça o editor com o rascunho dele */}
-        <Editor key={workflow.data.id} workflow={workflow.data} queues={queues} tags={tags} endpoints={endpoints} users={users} me={me} />
+        <Editor
+          key={workflow.data.id}
+          workflow={workflow.data}
+          queues={queues}
+          tags={tags}
+          endpoints={endpoints}
+          users={users}
+          integrations={integrations}
+          sources={sources}
+          aiPolicy={aiPolicy}
+          me={me}
+        />
       </TooltipProvider>
     </ReactFlowProvider>
   );
 }
 
-type EditorProps = { workflow: Workflow; queues: OperationalQueue[]; tags: Tag[]; endpoints: ChannelEndpoint[]; users: User[]; me: User };
+type EditorProps = {
+  workflow: Workflow;
+  queues: OperationalQueue[];
+  tags: Tag[];
+  endpoints: ChannelEndpoint[];
+  users: User[];
+  integrations: Integration[];
+  sources: KnowledgeSource[];
+  aiPolicy: AiPolicy;
+  me: User;
+};
 type SaveState = 'saved' | 'saving' | 'error';
 
-function Editor({ workflow, queues, tags, endpoints, users, me }: EditorProps) {
+function Editor({ workflow, queues, tags, endpoints, users, integrations, sources, aiPolicy, me }: EditorProps) {
   const toast = useToast();
   const flow = useReactFlow();
   const history = useDefinitionHistory(workflow.draft);
@@ -75,6 +100,21 @@ function Editor({ workflow, queues, tags, endpoints, users, me }: EditorProps) {
   const lookup = useMemo(
     () => ({ queueName: (id?: string) => queues.find((q) => q.id === id)?.name, tagName: (id?: string) => tags.find((t) => t.id === id)?.name }),
     [queues, tags],
+  );
+  // Resolve integração + operação para o teste mostrar a chamada real e avisar se está desativada.
+  const integrationCall = useMemo(
+    () => (integrationId?: string, operationId?: string) => {
+      const integration = integrations.find((i) => i.id === integrationId);
+      const operation = integration?.operations.find((o) => o.id === operationId);
+      if (!integration || !operation) return undefined;
+      return {
+        label: `${integration.name} · ${operation.name}`,
+        method: operation.method,
+        url: `${integration.baseUrl}${operation.path}`,
+        disabled: integration.status === 'disabled',
+      };
+    },
+    [integrations],
   );
   const issues = useMemo(() => validateWorkflow(def), [def]);
   const issuesByNode = useMemo(() => {
@@ -276,7 +316,26 @@ function Editor({ workflow, queues, tags, endpoints, users, me }: EditorProps) {
   const published = publishedVersion(workflow);
   const pending = hasUnpublishedChanges({ ...workflow, draft: def });
   const publishBlocked = issues.length > 0 ? `Corrija ${issues.length} problema(s) para publicar` : !pending ? 'Nada novo para publicar' : null;
-  const runContext = useMemo(() => ({ ...lookup, nodeLabel: (n: WorkflowNode) => catalog[n.type].label }), [lookup]);
+  // A IA do teste passa pelo mesmo caminho do atendimento: política do tenant, fontes do nó
+  // e as mesmas regras de handoff. Nada de resposta de mentira só para o canvas.
+  const askAi = useCallback(
+    async (question: string, sourceIds: string[], requireCitation: boolean) => {
+      const answer = await api.askAi(question);
+      const allowed = sourceIds.length === 0 ? answer.citations : answer.citations.filter((c) => sourceIds.includes(c.sourceId));
+      // O nó pode restringir as fontes além da política: sem citação permitida, entrega.
+      if (answer.handoffReason) return { text: answer.text, citations: allowed, handoffReason: answer.handoffReason };
+      if (requireCitation && allowed.length === 0) {
+        return { text: '', citations: [], handoffReason: 'Nenhuma das fontes escolhidas neste passo sustenta a resposta.' };
+      }
+      return { text: answer.text, citations: allowed };
+    },
+    [],
+  );
+
+  const runContext = useMemo(
+    () => ({ ...lookup, integrationCall, askAi, nodeLabel: (n: WorkflowNode) => catalog[n.type].label }),
+    [lookup, integrationCall, askAi],
+  );
 
   return (
     <div className={s.editor}>
@@ -404,7 +463,7 @@ function Editor({ workflow, queues, tags, endpoints, users, me }: EditorProps) {
               key={selected.id}
               node={selected}
               def={def}
-              refs={{ queues, tags, endpoints }}
+              refs={{ queues, tags, endpoints, integrations, sources, aiPolicy }}
               issues={issuesByNode[selected.id] ?? []}
               onChange={(config) => updateConfig(selected.id, config)}
               onDelete={() => deleteNode(selected.id)}

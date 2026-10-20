@@ -989,3 +989,561 @@
   width: 12px;
   height: 12px;
 }
+
+/* ---------- Canais ---------- */
+.channelCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+/* Desconectado continua legível, só recuado: o canal existe e tem histórico. */
+.channelCardOff {
+  background: var(--bg-subtle);
+}
+.channelCardOff .channelAvatar {
+  background: var(--text-muted);
+}
+
+.channelHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.channelAvatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-whatsapp);
+  color: #ffffff;
+}
+.channelAvatar svg {
+  width: 20px;
+  height: 20px;
+}
+.channelName {
+  flex: 1;
+  min-width: 0;
+}
+.channelName h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+.channelAddress {
+  display: block;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.channelBadges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.channelError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-fg);
+  font-size: var(--text-sm);
+}
+.channelError svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+}
+
+.channelWarnInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--tone-warning-fg);
+  font-size: var(--text-sm);
+}
+.channelWarnInline svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* O limite de envio é uma frase, não um número: não herda o tamanho das outras estatísticas. */
+.statSmall {
+  font-size: var(--text-sm) !important;
+  font-weight: var(--weight-medium) !important;
+}
+
+.webhook {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.webhook summary {
+  padding: var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+.webhook summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-md);
+}
+.webhook > :not(summary) {
+  margin: 0 var(--space-3) var(--space-3);
+}
+
+.webhookRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.webhookLabel {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+
+.channelMeta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+.channelMeta dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.channelMeta dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+}
+
+.channelFooter {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: auto;
+}
+
+/* ---------- Integrações ---------- */
+.testRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+.testRow select {
+  height: 36px;
+}
+
+.runsSection {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+.runsHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.runsFilters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.failuresToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.runOperation small,
+.runResult small {
+  display: block;
+  max-width: 340px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.runOperation small {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+.runNumber {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Destaque discreto: mais de uma tentativa é informação, não erro. */
+.retryMark {
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-fg);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.runSource {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.runSource svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.operationRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.operationCall {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.operationCall select {
+  width: 92px;
+  flex-shrink: 0;
+}
+.operationCall input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: var(--text-sm);
+}
+
+/* ---------- Base de conhecimento ---------- */
+.kbSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  max-width: 520px;
+}
+.kbSummary div {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.kbSummary dt {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+.kbSummary dd {
+  margin: 2px 0 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.kbSummary dd span {
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: var(--weight-regular);
+}
+
+.sourceCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.sourceIcon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--bg-chip);
+  color: var(--text-secondary);
+}
+.sourceIcon svg {
+  width: 14px;
+  height: 14px;
+}
+.sourceCell small {
+  display: block;
+  max-width: 300px;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Agente de IA ---------- */
+.aiForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 760px;
+}
+.aiForm fieldset[disabled] {
+  opacity: 0.55;
+}
+.aiLegend {
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+/* A cor acompanha o risco do nível: desligada é neutra, "responde e age" é vermelha. */
+.aiAutonomyNote {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.tone-neutral {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+.tone-info {
+  background: var(--tone-info-bg);
+  color: var(--tone-info-fg);
+}
+.tone-warning {
+  background: var(--tone-warning-bg);
+  color: var(--tone-warning-fg);
+}
+.tone-danger {
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-fg);
+}
+.tone-success {
+  background: var(--tone-success-bg);
+  color: var(--tone-success-fg);
+}
+
+.aiActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.topicRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  max-width: 520px;
+}
+.topicRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.topicChips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.topicChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--tone-danger-bg);
+  color: var(--tone-danger-fg);
+  font-size: var(--text-sm);
+}
+.topicChip svg {
+  width: 13px;
+  height: 13px;
+}
+.topicChip button {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.topicChip button:hover {
+  opacity: 1;
+}
+
+.answerCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: 760px;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.answerText {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  line-height: 1.55;
+}
+.citationList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.citationList li {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+.citationList svg {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  color: var(--accent);
+}
+.citationList strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+.citationList small {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.answerMeta {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Auditoria ---------- */
+.auditSearch {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+}
+.auditSearch svg {
+  position: absolute;
+  top: 50%;
+  left: var(--space-3);
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.auditSearch input {
+  padding-left: calc(var(--space-3) + 24px);
+}
+.auditCount {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.auditActor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+/* Ação do sistema não leva avatar de pessoa: não foi ninguém que fez. */
+.systemIcon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  color: var(--text-secondary);
+}
+.systemIcon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.auditEntity strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+.auditEntity small {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.auditSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 460px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+.changeList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.change {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: var(--text-xs);
+}
+.change svg {
+  width: 11px;
+  height: 11px;
+  color: var(--text-muted);
+}
+.changeField {
+  color: var(--text-muted);
+}
+/* Valor antigo riscado, novo em destaque: a leitura é "era isto, virou aquilo". */
+.changeFrom {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.changeTo {
+  color: var(--text-primary);
+  font-weight: var(--weight-medium);
+}

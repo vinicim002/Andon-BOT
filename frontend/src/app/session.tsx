@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router';
 import { api } from '../api';
 import type { User } from '../domain/types';
@@ -19,6 +19,11 @@ function readStored(): User | undefined {
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | undefined>(readStored);
+  // Recarregar a página não passa pelo login: o ator da auditoria precisa ser restaurado aqui,
+  // senão as ações seguintes ficariam sem autor. Com cookie de sessão isso deixa de existir.
+  useEffect(() => {
+    api.setActor(user?.id);
+  }, [user?.id]);
   // Saída explícita ("Sair"): o próximo login começa do início, sem voltar à página de quem saiu.
   const [signedOut, setSignedOut] = useState(false);
 

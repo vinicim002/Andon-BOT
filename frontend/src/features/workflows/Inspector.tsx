@@ -3,7 +3,10 @@ import { AlertCircle, CheckCircle2, Copy, Info, Plus, Trash2, X } from 'lucide-r
 import { Button } from '../../design-system/components';
 import { Field, Select, TextArea, TextInput } from '../../design-system/forms';
 import { ticketPriority } from '../../domain/labels';
-import type { ChannelEndpoint, OperationalQueue, Tag } from '../../domain/types';
+import type { AiPolicy, KnowledgeSource } from '../../domain/ai';
+import type { Integration } from '../../domain/integration';
+import { aiAutonomy, sourceKind } from '../../domain/labels';
+import type { ChannelEndpoint, Id, OperationalQueue, Tag } from '../../domain/types';
 import type { ConditionOperator, NodeConfig, WorkflowDefinition, WorkflowNode } from '../../domain/workflow';
 import type { ValidationIssue } from '../../domain/workflowValidation';
 import { interpolate } from '../../domain/workflowRuntime';
@@ -11,7 +14,14 @@ import { cx } from '../../lib/cx';
 import { catalog, operatorLabels } from './catalog';
 import s from './Editor.module.css';
 
-export type InspectorRefs = { queues: OperationalQueue[]; tags: Tag[]; endpoints: ChannelEndpoint[] };
+export type InspectorRefs = {
+  queues: OperationalQueue[];
+  tags: Tag[];
+  endpoints: ChannelEndpoint[];
+  integrations: Integration[];
+  sources: KnowledgeSource[];
+  aiPolicy: AiPolicy;
+};
 
 // Variáveis disponíveis no texto: fixas + as respostas guardadas pelos passos de HTTP.
 function variablesOf(def: WorkflowDefinition) {
@@ -253,31 +263,155 @@ export function NodeInspector({ node, def, refs, issues, onChange, onDelete, onD
         </>
       );
       break;
-    case 'http_request':
+    case 'http_request': {
+      // O nó guarda só as referências; método, caminho e credencial vivem na integração.
+      const chosen = refs.integrations.find((i) => i.id === c.integrationId);
+      const operation = chosen?.operations.find((o) => o.id === c.operationId);
       form = (
         <>
-          <Field label="Método">
+          <Field label="Integração" hint="Cadastradas em Configurações › Integrações.">
             {(id) => (
-              <Select id={id} value={c.method as string} onChange={(e) => set({ method: e.target.value })}>
-                <option value="GET">GET — consultar</option>
-                <option value="POST">POST — enviar</option>
+              <Select
+                id={id}
+                value={(c.integrationId as string) ?? ''}
+                onChange={(e) => set({ integrationId: e.target.value || undefined, operationId: undefined })}
+              >
+                <option value="">Escolha a integração</option>
+                {refs.integrations.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.name}
+                    {i.status === 'disabled' ? ' (desativada)' : ''}
+                  </option>
+                ))}
               </Select>
             )}
           </Field>
-          <Field label="URL">{(id) => <VarText id={id} value={c.url as string} onChange={(v) => set({ url: v })} variables={variables.filter((v) => !v.endsWith('.'))} />}</Field>
+          <Field label="Operação">
+            {(id) => (
+              <Select
+                id={id}
+                value={(c.operationId as string) ?? ''}
+                disabled={!chosen}
+                onChange={(e) => set({ operationId: e.target.value || undefined })}
+              >
+                <option value="">{chosen ? 'Escolha a operação' : 'Escolha a integração primeiro'}</option>
+                {chosen?.operations.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          {operation && (
+            <p className={s.helpText}>
+              {operation.method} {chosen?.baseUrl}
+              {operation.path}
+            </p>
+          )}
           <Field label="Guardar resposta como" hint="Depois use {{nome.campo}} nos passos seguintes.">
             {(id) => <TextInput id={id} value={c.saveAs as string} onChange={(e) => set({ saveAs: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })} />}
           </Field>
+          {chosen?.status === 'disabled' && (
+            <p className={s.callout}>
+              <Info aria-hidden />
+              <span>
+                {chosen.name} está desativada: enquanto ficar assim, este passo falha e a conversa vai para atendimento humano.
+              </span>
+            </p>
+          )}
           <p className={s.callout}>
             <Info aria-hidden />
             <span>
-              Integração simulada no teste: URLs com “pedido” ou “rastreio” devolvem um pedido de exemplo; com “erro”, a chamada falha e a conversa vai para atendimento
-              humano. Credenciais ficam na área de integrações (próxima etapa).
+              No teste a chamada é simulada: caminhos com “pedido” ou “rastreio” devolvem um pedido de exemplo e com “erro” a chamada
+              falha. A credencial fica na integração e nunca aparece aqui.
             </span>
           </p>
         </>
       );
       break;
+    }
+    case 'ai_answer': {
+      const chosenIds = (c.sourceIds as Id[]) ?? [];
+      const indexed = refs.sources.filter((source) => source.status === 'indexed');
+      const policy = refs.aiPolicy;
+      form = (
+        <>
+          <p className={s.helpText}>
+            Autonomia desta empresa: <strong>{aiAutonomy[policy.autonomy].label}</strong>. Ela vale para todos os fluxos e muda em
+            Configurações › Agente de IA.
+          </p>
+
+          <fieldset className={s.fieldset}>
+            <legend className={s.fieldLabel}>Fontes que este passo pode citar</legend>
+            {indexed.length === 0 ? (
+              <p className={s.helpText}>Nenhuma fonte indexada ainda. Cadastre em Configurações › Base de conhecimento.</p>
+            ) : (
+              <div className={s.checkList}>
+                {indexed.map((source) => {
+                  const checked = chosenIds.includes(source.id);
+                  return (
+                    <label key={source.id} className={s.checkRow}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() =>
+                          set({ sourceIds: checked ? chosenIds.filter((x) => x !== source.id) : [...chosenIds, source.id] })
+                        }
+                      />
+                      <span>
+                        <strong>{source.name}</strong>
+                        <small>
+                          {sourceKind[source.kind].label} · {source.chunks} fragmentos
+                        </small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            <p className={s.helpText}>
+              {chosenIds.length === 0
+                ? 'Nenhuma escolhida: o passo usa todas as fontes liberadas na política da empresa.'
+                : `${chosenIds.length} fonte(s) escolhida(s) — este passo não cita nada fora disso.`}
+            </p>
+          </fieldset>
+
+          <label className={s.checkRow}>
+            <input type="checkbox" checked={c.requireCitation as boolean} onChange={(e) => set({ requireCitation: e.target.checked })} />
+            <span>
+              <strong>Exigir citação</strong>
+              <small>Sem um trecho que sustente a resposta, a IA não responde: entrega para uma pessoa.</small>
+            </span>
+          </label>
+
+          <Field label="Fila do handoff" hint="Para onde vai a conversa quando a IA entregar. Em branco usa a fila da política.">
+            {(id) => (
+              <Select
+                id={id}
+                value={(c.handoffQueueId as string) ?? ''}
+                onChange={(e) => set({ handoffQueueId: e.target.value || undefined })}
+              >
+                <option value="">Fila da política ({refs.queues.find((q) => q.id === policy.handoffQueueId)?.name ?? 'não definida'})</option>
+                {refs.queues.map((q) => (
+                  <option key={q.id} value={q.id}>
+                    {q.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+
+          {policy.autonomy === 'off' && (
+            <p className={s.callout}>
+              <Info aria-hidden />
+              <span>A IA está desligada nesta empresa: enquanto ficar assim, este passo sempre entrega para uma pessoa.</span>
+            </p>
+          )}
+        </>
+      );
+      break;
+    }
     case 'end':
       form = (
         <label className={s.checkRow}>

@@ -5,6 +5,9 @@
 // fechar a aba volta aos dados iniciais. Não é persistência de verdade.
 import type {
   Availability,
+  ChannelEndpoint,
+  ChannelEndpointInput,
+  ChannelStatus,
   InviteInput,
   InviteResult,
   Permission,
@@ -12,11 +15,15 @@ import type {
   RoleInput,
   User,
   Contact,
+  ContactInput,
   Conversation,
   Id,
   Message,
   NewTicket,
   OperationalQueue,
+  Organization,
+  OrganizationInput,
+  OrganizationRef,
   QueueInput,
   QuickReply,
   QuickReplyInput,
@@ -26,13 +33,16 @@ import type {
   TicketEvent,
   TransferTarget,
 } from '../domain/types';
+import type { AiAnswer, AiPolicy, KnowledgeSource, SourceInput } from '../domain/ai';
+import type { AuditAction, AuditChange, AuditEntityType } from '../domain/audit';
+import type { Integration, IntegrationAuth, IntegrationInput, IntegrationRun, IntegrationStatus } from '../domain/integration';
 import type { Workflow, WorkflowDefinition, WorkflowTemplate } from '../domain/workflow';
 import { validateWorkflow } from '../domain/workflowValidation';
 import { templateDefinition, templateInfo } from '../domain/workflowTemplates';
 import * as seed from './data';
 
 // Versão no nome: mudou o formato dos dados, a aba descarta o estado antigo.
-const STORAGE_KEY = 'andon-mock-db-v5';
+const STORAGE_KEY = 'andon-mock-db-v11';
 
 const initial = {
   users: [...seed.users],
@@ -40,6 +50,12 @@ const initial = {
   queues: [...seed.queues],
   endpoints: seed.endpoints,
   contacts: [...seed.contacts],
+  organizations: [...seed.organizations],
+  integrations: [...seed.integrations],
+  integrationRuns: [...seed.integrationRuns],
+  knowledgeSources: [...seed.knowledgeSources],
+  auditEvents: [...seed.auditEvents],
+  aiPolicy: seed.aiPolicy,
   tags: [...seed.tagCatalog],
   conversations: [...seed.conversations],
   messages: [...seed.messages],
@@ -68,9 +84,62 @@ export function persist() {
   }
 }
 
+// Ator da sessão. O back-end tira isto do cookie de sessão; aqui a camada de API avisa quem
+// entrou. Nenhuma mutação recebe o ator por parâmetro para registrar auditoria — se recebesse,
+// o cliente poderia se passar por outra pessoa.
+let currentActorId: Id | undefined;
+
+export function setActor(userId?: Id) {
+  currentActorId = userId;
+}
+
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 const userName = (userId?: Id) => db.users.find((u) => u.id === userId)?.name ?? 'Alguém';
+
+// Registra na trilha. `label` é copiado agora de propósito: a entidade pode ser renomeada
+// ou removida depois e o evento tem de continuar legível.
+function audit(
+  action: AuditAction,
+  entityType: AuditEntityType,
+  entityLabel: string,
+  summary: string,
+  extra?: { entityId?: Id; changes?: AuditChange[] },
+) {
+  db.auditEvents = [
+    {
+      id: id(),
+      at: now(),
+      actorUserId: currentActorId,
+      action,
+      entityType,
+      entityId: extra?.entityId,
+      entityLabel,
+      summary,
+      changes: extra?.changes ?? [],
+    },
+    ...db.auditEvents,
+  ];
+}
+
+// Compara antes/depois e devolve só o que mudou, já em texto legível.
+function diff(before: Record<string, unknown>, after: Record<string, unknown>, labels: Record<string, string>): AuditChange[] {
+  const changes: AuditChange[] = [];
+  for (const [key, label] of Object.entries(labels)) {
+    const from = before[key];
+    const to = after[key];
+    const same = JSON.stringify(from ?? null) === JSON.stringify(to ?? null);
+    if (!same) changes.push({ field: label, from: describe(from), to: describe(to) });
+  }
+  return changes;
+}
+
+function describe(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (Array.isArray(value)) return value.length === 0 ? 'nenhum' : `${value.length} item(ns)`;
+  if (typeof value === 'boolean') return value ? 'sim' : 'não';
+  return String(value);
+}
 
 class NotFound extends Error {}
 
@@ -205,6 +274,491 @@ export function deleteQueue(queueId: Id) {
   return moved.length;
 }
 
+// ---------- Canais ----------
+
+// Só dígitos: o que a Meta aceita como identificador e o que vale comparar entre números.
+const digits = (value: string) => value.replace(/\D/g, '');
+
+function validateChannel(input: ChannelEndpointInput, ignoreId?: Id) {
+  const name = input.name.trim();
+  const address = input.address.trim();
+  if (!name) throw new Error('Dê um nome para identificar este número no console.');
+  if (digits(address).length < 10) throw new Error('Informe o número com DDI e DDD. Ex.: +55 11 90000-0000.');
+  if (!/^\d{10,20}$/.test(input.wabaId.trim())) throw new Error('O ID da conta do WhatsApp Business (WABA) tem só dígitos.');
+  if (!/^\d{10,20}$/.test(input.phoneNumberId.trim())) throw new Error('O ID do número de telefone tem só dígitos.');
+  const clash = db.endpoints.find((e) => e.id !== ignoreId && digits(e.address) === digits(address));
+  if (clash) throw new Error(`O número ${clash.address} já está conectado em ${clash.name}.`);
+  const sameId = db.endpoints.find((e) => e.id !== ignoreId && e.whatsapp?.phoneNumberId === input.phoneNumberId.trim());
+  if (sameId) throw new Error(`Este ID de número já está em uso em ${sameId.name}.`);
+  return { name, address, wabaId: input.wabaId.trim(), phoneNumberId: input.phoneNumberId.trim() };
+}
+
+// Guarda apenas a dica do token, como o back-end fará: o valor cifrado não volta para a tela.
+const tokenHint = (token: string) => `••••${token.trim().slice(-4)}`;
+
+// As filas apontam para o endpoint (endpoint_queue), então vincular um canal é editar as filas.
+function linkQueues(endpointId: Id, queueIds: Id[]) {
+  db.queues = db.queues.map((q) => {
+    const should = queueIds.includes(q.id);
+    const has = q.endpointIds.includes(endpointId);
+    if (should === has) return q;
+    return { ...q, endpointIds: should ? [...q.endpointIds, endpointId] : q.endpointIds.filter((x) => x !== endpointId) };
+  });
+}
+
+export function connectChannel(input: ChannelEndpointInput): ChannelEndpoint {
+  const clean = validateChannel(input);
+  if (input.accessToken.trim().length < 20) throw new Error('Cole o token permanente gerado no painel da Meta.');
+  const endpointId = id();
+  // Nasce "pending": só vira "connected" depois de a verificação do webhook passar.
+  const endpoint: ChannelEndpoint = {
+    id: endpointId,
+    channelType: 'whatsapp',
+    name: clean.name,
+    address: clean.address,
+    status: 'pending',
+    whatsapp: {
+      wabaId: clean.wabaId,
+      phoneNumberId: clean.phoneNumberId,
+      verifiedName: clean.name,
+      tokenHint: tokenHint(input.accessToken),
+      webhookUrl: `${seed.webhookHost}/webhooks/whatsapp/${endpointId}`,
+      webhookVerifyToken: `verif-${endpointId.slice(0, 8)}`,
+    },
+  };
+  db.endpoints = [...db.endpoints, endpoint];
+  linkQueues(endpointId, input.queueIds);
+  audit('created', 'channel', endpoint.name, `Conectou o número ${endpoint.address}`, { entityId: endpointId });
+  return endpoint;
+}
+
+export function updateChannel(endpointId: Id, input: ChannelEndpointInput) {
+  const current = db.endpoints.find((e) => e.id === endpointId);
+  if (!current) throw new NotFound('Canal não encontrado.');
+  const clean = validateChannel(input, endpointId);
+  const token = input.accessToken.trim();
+  // Token em branco significa "mantém o que já está salvo" — a tela nunca recebe o valor atual.
+  if (token && token.length < 20) throw new Error('O token novo parece incompleto. Deixe em branco para manter o atual.');
+  const changes = diff(
+    { name: current.name, address: current.address, phoneNumberId: current.whatsapp?.phoneNumberId },
+    { name: clean.name, address: clean.address, phoneNumberId: clean.phoneNumberId },
+    { name: 'Nome', address: 'Número', phoneNumberId: 'ID do número' },
+  );
+  // Troca de token é registrada como fato, sem o valor: nem o segredo nem a dica antiga entram.
+  if (token) changes.push({ field: 'Token', to: 'substituído' });
+  db.endpoints = db.endpoints.map((e) =>
+    e.id === endpointId
+      ? {
+          ...e,
+          name: clean.name,
+          address: clean.address,
+          whatsapp: e.whatsapp && {
+            ...e.whatsapp,
+            wabaId: clean.wabaId,
+            phoneNumberId: clean.phoneNumberId,
+            tokenHint: token ? tokenHint(token) : e.whatsapp.tokenHint,
+          },
+        }
+      : e,
+  );
+  linkQueues(endpointId, input.queueIds);
+  audit('updated', 'channel', clean.name, 'Alterou a configuração do canal', { entityId: endpointId, changes });
+}
+
+// Verificação simulada: credencial completa passa, token encurtado falha. Com a Cloud API real,
+// isto é uma chamada ao endpoint do número — e o resultado alimenta os mesmos campos.
+export function testChannel(endpointId: Id): ChannelEndpoint {
+  const endpoint = db.endpoints.find((e) => e.id === endpointId);
+  if (!endpoint) throw new NotFound('Canal não encontrado.');
+  if (!endpoint.whatsapp) throw new Error('Este canal não tem configuração da Cloud API.');
+  const ok = endpoint.whatsapp.tokenHint.length > 4 && Boolean(endpoint.whatsapp.phoneNumberId);
+  db.endpoints = db.endpoints.map((e) =>
+    e.id === endpointId
+      ? {
+          ...e,
+          status: ok ? 'connected' : 'error',
+          whatsapp: e.whatsapp && {
+            ...e.whatsapp,
+            quality: ok ? (e.whatsapp.quality ?? 'green') : e.whatsapp.quality,
+            tier: ok ? (e.whatsapp.tier ?? '250') : e.whatsapp.tier,
+            lastCheckedAt: now(),
+            lastError: ok ? undefined : 'A Meta não reconheceu o token informado.',
+          },
+        }
+      : e,
+  );
+  return db.endpoints.find((e) => e.id === endpointId)!;
+}
+
+export function setChannelStatus(endpointId: Id, status: ChannelStatus) {
+  const endpoint = db.endpoints.find((e) => e.id === endpointId);
+  if (!endpoint) throw new NotFound('Canal não encontrado.');
+  db.endpoints = db.endpoints.map((e) => (e.id === endpointId ? { ...e, status } : e));
+  audit(status === 'disabled' ? 'disabled' : 'enabled', 'channel', endpoint.name, `${status === 'disabled' ? 'Desconectou' : 'Reconectou'} o canal`, {
+    entityId: endpointId,
+    changes: [{ field: 'Estado', from: endpoint.status, to: status }],
+  });
+}
+
+// Conversas em andamento impedem a remoção: elas referenciam o endpoint e perderiam a origem.
+export function deleteChannel(endpointId: Id) {
+  const endpoint = db.endpoints.find((e) => e.id === endpointId);
+  if (!endpoint) throw new NotFound('Canal não encontrado.');
+  const open = db.conversations.filter((c) => c.endpoint.id === endpointId && c.status !== 'closed');
+  if (open.length > 0) {
+    throw new Error(`${open.length} conversa(s) em andamento usam este número. Desconecte-o em vez de remover.`);
+  }
+  linkQueues(endpointId, []);
+  db.endpoints = db.endpoints.filter((e) => e.id !== endpointId);
+  audit('deleted', 'channel', endpoint.name, `Removeu o canal ${endpoint.address}`, { entityId: endpointId });
+}
+
+// ---------- Integrações ----------
+
+function validateIntegration(input: IntegrationInput, ignoreId?: Id) {
+  const name = input.name.trim();
+  const baseUrl = input.baseUrl.trim().replace(/\/$/, '');
+  if (!name) throw new Error('Dê um nome para a integração.');
+  if (!/^https?:\/\/\S+$/.test(baseUrl)) throw new Error('A URL base deve começar com http:// ou https://.');
+  if (db.integrations.some((i) => i.id !== ignoreId && i.name.toLowerCase() === name.toLowerCase())) {
+    throw new Error(`Já existe uma integração chamada ${name}.`);
+  }
+  if (input.operations.length === 0) throw new Error('Cadastre ao menos uma operação — é o que o workflow escolhe.');
+  for (const operation of input.operations) {
+    if (!operation.name.trim()) throw new Error('Toda operação precisa de nome.');
+    if (!operation.path.trim().startsWith('/')) throw new Error(`O caminho de “${operation.name}” deve começar com /.`);
+  }
+  if (input.auth.kind === 'api_key' && !input.auth.headerName?.trim()) {
+    throw new Error('Informe o nome do cabeçalho que leva a chave.');
+  }
+  if (input.timeoutMs < 500 || input.timeoutMs > 60_000) throw new Error('O tempo limite deve ficar entre 500 ms e 60 s.');
+  if (input.retry.attempts < 1 || input.retry.attempts > 5) throw new Error('As tentativas devem ficar entre 1 e 5.');
+  return { name, baseUrl };
+}
+
+// Mesmo tratamento do token de canal: guarda só a dica, nunca o segredo.
+const secretHint = (secret: string) => `••••${secret.trim().slice(-4)}`;
+
+function buildAuth(input: IntegrationInput, current?: IntegrationAuth): IntegrationAuth {
+  const secret = input.auth.secret?.trim();
+  return {
+    kind: input.auth.kind,
+    headerName: input.auth.kind === 'api_key' ? input.auth.headerName?.trim() : undefined,
+    username: input.auth.kind === 'basic' ? input.auth.username?.trim() : undefined,
+    // Segredo em branco na edição significa "mantém o atual".
+    secretHint: input.auth.kind === 'none' ? undefined : secret ? secretHint(secret) : current?.secretHint,
+  };
+}
+
+export function createIntegration(input: IntegrationInput): Integration {
+  const clean = validateIntegration(input);
+  if (input.auth.kind !== 'none' && !input.auth.secret?.trim()) throw new Error('Informe a credencial desta integração.');
+  const integration: Integration = {
+    id: id(),
+    name: clean.name,
+    description: input.description.trim(),
+    baseUrl: clean.baseUrl,
+    auth: buildAuth(input),
+    headers: input.headers.filter((h) => h.name.trim()),
+    operations: input.operations.map((o) => ({ ...o, id: o.id || id(), name: o.name.trim(), path: o.path.trim() })),
+    timeoutMs: input.timeoutMs,
+    retry: input.retry,
+    status: 'active',
+    createdAt: now(),
+  };
+  db.integrations = [...db.integrations, integration];
+  audit('created', 'integration', integration.name, `Cadastrou a integração com ${integration.operations.length} operação(ões)`, {
+    entityId: integration.id,
+  });
+  return integration;
+}
+
+export function updateIntegration(integrationId: Id, input: IntegrationInput) {
+  const current = db.integrations.find((i) => i.id === integrationId);
+  if (!current) throw new NotFound('Integração não encontrada.');
+  const clean = validateIntegration(input, integrationId);
+  // Remover uma operação usada por workflow deixaria o nó apontando para o vazio.
+  const removed = current.operations.filter((o) => !input.operations.some((kept) => kept.id === o.id));
+  for (const operation of removed) {
+    const used = workflowsUsingOperation(integrationId, operation.id);
+    if (used.length > 0) throw new Error(`A operação “${operation.name}” é usada em ${used.join(', ')}. Ajuste o workflow antes.`);
+  }
+  const updated: Integration = {
+    ...current,
+    name: clean.name,
+    description: input.description.trim(),
+    baseUrl: clean.baseUrl,
+    auth: buildAuth(input, current.auth),
+    headers: input.headers.filter((h) => h.name.trim()),
+    operations: input.operations.map((o) => ({ ...o, id: o.id || id(), name: o.name.trim(), path: o.path.trim() })),
+    timeoutMs: input.timeoutMs,
+    retry: input.retry,
+  };
+  db.integrations = db.integrations.map((i) => (i.id === integrationId ? updated : i));
+  const changes = diff(
+    { name: current.name, baseUrl: current.baseUrl, auth: current.auth.kind, operations: current.operations, timeoutMs: current.timeoutMs },
+    { name: updated.name, baseUrl: updated.baseUrl, auth: updated.auth.kind, operations: updated.operations, timeoutMs: updated.timeoutMs },
+    { name: 'Nome', baseUrl: 'URL base', auth: 'Autenticação', operations: 'Operações', timeoutMs: 'Tempo limite' },
+  );
+  if (input.auth.secret?.trim()) changes.push({ field: 'Credencial', to: 'substituída' });
+  audit('updated', 'integration', updated.name, 'Alterou a integração', { entityId: integrationId, changes });
+  return updated;
+}
+
+export function setIntegrationStatus(integrationId: Id, status: IntegrationStatus) {
+  const integration = db.integrations.find((i) => i.id === integrationId);
+  if (!integration) throw new NotFound('Integração não encontrada.');
+  db.integrations = db.integrations.map((i) => (i.id === integrationId ? { ...i, status } : i));
+  audit(status === 'disabled' ? 'disabled' : 'enabled', 'integration', integration.name, `${status === 'disabled' ? 'Desativou' : 'Reativou'} a integração`, {
+    entityId: integrationId,
+    changes: [{ field: 'Estado', from: integration.status, to: status }],
+  });
+}
+
+// Nomes dos workflows (rascunho ou versão publicada) que apontam para esta operação.
+function workflowsUsingOperation(integrationId: Id, operationId: Id) {
+  const uses = (definition: WorkflowDefinition) =>
+    definition.nodes.some((n) => {
+      if (n.type !== 'http_request') return false;
+      const c = n.config as { integrationId?: Id; operationId?: Id };
+      return c.integrationId === integrationId && c.operationId === operationId;
+    });
+  return db.workflows.filter((w) => uses(w.draft) || w.versions.some((v) => uses(v.definition))).map((w) => w.name);
+}
+
+export function workflowsUsingIntegration(integrationId: Id) {
+  const uses = (definition: WorkflowDefinition) =>
+    definition.nodes.some((n) => n.type === 'http_request' && (n.config as { integrationId?: Id }).integrationId === integrationId);
+  return db.workflows.filter((w) => uses(w.draft) || w.versions.some((v) => uses(v.definition))).map((w) => w.name);
+}
+
+export function deleteIntegration(integrationId: Id) {
+  const integration = db.integrations.find((i) => i.id === integrationId);
+  if (!integration) throw new NotFound('Integração não encontrada.');
+  const used = workflowsUsingIntegration(integrationId);
+  if (used.length > 0) throw new Error(`Usada em ${used.join(', ')}. Remova o passo do workflow antes, ou apenas desative.`);
+  db.integrations = db.integrations.filter((i) => i.id !== integrationId);
+  db.integrationRuns = db.integrationRuns.filter((r) => r.integrationId !== integrationId);
+  audit('deleted', 'integration', integration.name, 'Removeu a integração e os logs dela', { entityId: integrationId });
+}
+
+// Chamada de teste simulada. Registra a execução como qualquer outra, para a tela de logs
+// mostrar o teste junto do que o workflow fez — é assim que se depura uma integração.
+export function testIntegration(integrationId: Id, operationId: Id): IntegrationRun {
+  const integration = db.integrations.find((i) => i.id === integrationId);
+  if (!integration) throw new NotFound('Integração não encontrada.');
+  const operation = integration.operations.find((o) => o.id === operationId);
+  if (!operation) throw new NotFound('Operação não encontrada.');
+
+  const disabled = integration.status === 'disabled';
+  // Sem credencial onde ela é exigida, a chamada falha com 401 — como falharia de verdade.
+  const missingSecret = integration.auth.kind !== 'none' && !integration.auth.secretHint;
+  const failed = disabled || missingSecret;
+
+  const run: IntegrationRun = {
+    id: id(),
+    integrationId,
+    operationName: operation.name,
+    method: operation.method,
+    url: `${integration.baseUrl}${operation.path}`,
+    status: failed ? 'failed' : 'success',
+    httpStatus: disabled ? undefined : missingSecret ? 401 : 200,
+    durationMs: failed ? integration.timeoutMs : 250 + Math.floor(Math.random() * 600),
+    attempts: failed ? integration.retry.attempts : 1,
+    error: disabled
+      ? 'Integração desativada: a chamada não foi enviada.'
+      : missingSecret
+        ? 'Credencial ausente ou recusada (401).'
+        : undefined,
+    source: { kind: 'manual' },
+    at: now(),
+  };
+  db.integrationRuns = [run, ...db.integrationRuns];
+  audit('tested', 'integration', integration.name, `Testou “${operation.name}”: ${run.status === 'success' ? 'sucesso' : 'falha'}`, {
+    entityId: integrationId,
+  });
+  return run;
+}
+
+// ---------- Base de conhecimento e IA ----------
+
+// Quantos fragmentos uma fonte gera. No back-end isso sai do indexador; aqui é derivado do
+// tamanho, só para a tela mostrar número coerente.
+function estimateChunks(source: SourceInput) {
+  if (source.kind === 'text') return Math.max(1, Math.ceil((source.content ?? '').length / 400));
+  return source.kind === 'pdf' ? 20 + Math.floor(Math.random() * 30) : 30 + Math.floor(Math.random() * 40);
+}
+
+function validateSource(input: SourceInput, ignoreId?: Id) {
+  const name = input.name.trim();
+  if (!name) throw new Error('Dê um nome para a fonte — é ele que aparece na citação.');
+  if (db.knowledgeSources.some((s) => s.id !== ignoreId && s.name.toLowerCase() === name.toLowerCase())) {
+    throw new Error(`Já existe uma fonte chamada ${name}.`);
+  }
+  if (input.kind === 'url' && !/^https?:\/\/\S+$/.test(input.origin?.trim() ?? '')) {
+    throw new Error('Informe o endereço da página, começando com http:// ou https://.');
+  }
+  if (input.kind === 'pdf' && !input.origin?.trim()) throw new Error('Informe o nome do arquivo PDF.');
+  if (input.kind === 'text' && (input.content?.trim().length ?? 0) < 40) {
+    throw new Error('Escreva pelo menos algumas frases — texto curto não sustenta citação.');
+  }
+  return { name, origin: input.origin?.trim() || undefined, content: input.content?.trim() || undefined };
+}
+
+export function createSource(input: SourceInput): KnowledgeSource {
+  const clean = validateSource(input);
+  // Nasce 'indexing': só pode ser citada depois de indexada, como no back-end.
+  const source: KnowledgeSource = {
+    id: id(),
+    name: clean.name,
+    kind: input.kind,
+    origin: clean.origin,
+    content: clean.content,
+    status: 'indexing',
+    chunks: 0,
+    createdAt: now(),
+  };
+  db.knowledgeSources = [...db.knowledgeSources, source];
+  audit('created', 'knowledge_source', source.name, `Cadastrou fonte do tipo ${source.kind}`, { entityId: source.id });
+  return source;
+}
+
+export function reindexSource(sourceId: Id): KnowledgeSource {
+  const source = db.knowledgeSources.find((s) => s.id === sourceId);
+  if (!source) throw new NotFound('Fonte não encontrada.');
+  // Reindexação simulada: a fonte que já falhou por 403 continua falhando, porque a causa
+  // (exigir login) não mudou. As outras concluem.
+  const stillBlocked = source.status === 'error' && source.origin?.includes('intranet');
+  const updated: KnowledgeSource = stillBlocked
+    ? { ...source, status: 'error', chunks: 0, error: source.error }
+    : {
+        ...source,
+        status: 'indexed',
+        chunks: estimateChunks({ name: source.name, kind: source.kind, origin: source.origin, content: source.content }),
+        lastIndexedAt: now(),
+        error: undefined,
+      };
+  db.knowledgeSources = db.knowledgeSources.map((s) => (s.id === sourceId ? updated : s));
+  audit('reindexed', 'knowledge_source', source.name, updated.status === 'indexed' ? 'Reindexou a fonte' : 'Reindexação falhou', {
+    entityId: sourceId,
+    changes: diff({ chunks: source.chunks }, { chunks: updated.chunks }, { chunks: 'Fragmentos' }),
+  });
+  return updated;
+}
+
+export function updateSource(sourceId: Id, input: SourceInput) {
+  const current = db.knowledgeSources.find((s) => s.id === sourceId);
+  if (!current) throw new NotFound('Fonte não encontrada.');
+  const clean = validateSource(input, sourceId);
+  // Mudou o conteúdo: volta para 'indexing', senão a citação apontaria para o texto antigo.
+  const changed = clean.content !== current.content || clean.origin !== current.origin;
+  db.knowledgeSources = db.knowledgeSources.map((s) =>
+    s.id === sourceId
+      ? { ...s, name: clean.name, kind: input.kind, origin: clean.origin, content: clean.content, status: changed ? 'indexing' : s.status, chunks: changed ? 0 : s.chunks }
+      : s,
+  );
+}
+
+// Nomes dos workflows cujo nó de IA cita esta fonte.
+export function workflowsUsingSource(sourceId: Id) {
+  const uses = (definition: WorkflowDefinition) =>
+    definition.nodes.some((n) => n.type === 'ai_answer' && ((n.config as { sourceIds?: Id[] }).sourceIds ?? []).includes(sourceId));
+  return db.workflows.filter((w) => uses(w.draft) || w.versions.some((v) => uses(v.definition))).map((w) => w.name);
+}
+
+export function deleteSource(sourceId: Id) {
+  const source = db.knowledgeSources.find((s) => s.id === sourceId);
+  if (!source) throw new NotFound('Fonte não encontrada.');
+  const used = workflowsUsingSource(sourceId);
+  if (used.length > 0) throw new Error(`Citada em ${used.join(', ')}. Tire a fonte do passo de IA antes de remover.`);
+  db.knowledgeSources = db.knowledgeSources.filter((s) => s.id !== sourceId);
+  // A política também aponta para fontes: limpa a referência para não sobrar id órfão.
+  db.aiPolicy = { ...db.aiPolicy, sourceIds: db.aiPolicy.sourceIds.filter((id) => id !== sourceId) };
+  audit('deleted', 'knowledge_source', source.name, `Removeu a fonte e ${source.chunks} fragmento(s)`, { entityId: sourceId });
+}
+
+export function saveAiPolicy(policy: AiPolicy): AiPolicy {
+  if (policy.maxRepliesBeforeHandoff < 1 || policy.maxRepliesBeforeHandoff > 10) {
+    throw new Error('O limite de respostas antes do handoff deve ficar entre 1 e 10.');
+  }
+  if (policy.autonomy !== 'off' && !policy.handoffQueueId) {
+    throw new Error('Escolha a fila que recebe o atendimento quando a IA entregar para uma pessoa.');
+  }
+  const indexed = db.knowledgeSources.filter((s) => s.status === 'indexed').map((s) => s.id);
+  const notIndexed = policy.sourceIds.filter((id) => !indexed.includes(id));
+  if (notIndexed.length > 0) {
+    const names = db.knowledgeSources.filter((s) => notIndexed.includes(s.id)).map((s) => s.name);
+    throw new Error(`Estas fontes ainda não estão indexadas: ${names.join(', ')}.`);
+  }
+  if (policy.autonomy !== 'off' && policy.requireCitation && policy.sourceIds.length === 0) {
+    throw new Error('Com citação obrigatória, escolha ao menos uma fonte — senão a IA nunca poderá responder.');
+  }
+  const before = db.aiPolicy;
+  db.aiPolicy = { ...policy, blockedTopics: policy.blockedTopics.map((t) => t.trim()).filter(Boolean) };
+  audit('updated', 'ai_policy', 'Política da IA', 'Alterou a política da IA', {
+    changes: diff(
+      { ...before } as unknown as Record<string, unknown>,
+      { ...db.aiPolicy } as unknown as Record<string, unknown>,
+      {
+        autonomy: 'Autonomia',
+        requireCitation: 'Exigir citação',
+        maxRepliesBeforeHandoff: 'Respostas antes do handoff',
+        handoffQueueId: 'Fila do handoff',
+        sourceIds: 'Fontes permitidas',
+        blockedTopics: 'Assuntos bloqueados',
+      },
+    ),
+  });
+  return db.aiPolicy;
+}
+
+// Resposta simulada: recupera o fragmento por palavra-chave e devolve a citação. Mostra as
+// três decisões que importam — assunto bloqueado, sem fonte que sustente, e resposta com citação.
+export function askAi(question: string): AiAnswer {
+  const policy = db.aiPolicy;
+  const text = question.trim();
+  if (!text) throw new Error('Escreva a pergunta.');
+
+  const base = { question: text, tokens: 180 + Math.floor(Math.random() * 400), latencyMs: 600 + Math.floor(Math.random() * 900), at: now() };
+
+  if (policy.autonomy === 'off') {
+    return { ...base, text: '', citations: [], handoffReason: 'A IA está desligada nesta empresa.' };
+  }
+
+  const lower = text.toLowerCase();
+  const blocked = policy.blockedTopics.find((topic) => lower.includes(topic.toLowerCase().split(' ')[0]));
+  if (blocked) {
+    return { ...base, text: '', citations: [], handoffReason: `Assunto bloqueado (“${blocked}”): entregue direto para uma pessoa.` };
+  }
+
+  const allowed = db.knowledgeSources.filter(
+    (s) => s.status === 'indexed' && (policy.sourceIds.length === 0 || policy.sourceIds.includes(s.id)),
+  );
+  const words = lower.split(/\W+/).filter((w) => w.length > 3);
+  const hit = allowed.find((s) => words.some((w) => s.name.toLowerCase().includes(w) || (s.content ?? '').toLowerCase().includes(w)));
+
+  if (!hit) {
+    return {
+      ...base,
+      text: '',
+      citations: [],
+      handoffReason: policy.requireCitation
+        ? 'Nenhuma fonte indexada sustenta a resposta e a citação é obrigatória.'
+        : 'Nenhuma fonte indexada sustenta a resposta.',
+    };
+  }
+
+  const snippet = (hit.content ?? `Trecho indexado de ${hit.origin ?? hit.name}`).slice(0, 180);
+  return {
+    ...base,
+    text:
+      policy.autonomy === 'suggest'
+        ? `Sugestão para o atendente: com base em “${hit.name}”, ${snippet}`
+        : `Com base em ${hit.name}: ${snippet}`,
+    citations: [{ sourceId: hit.id, sourceName: hit.name, snippet }],
+  };
+}
+
 // ---------- Respostas rápidas ----------
 
 function normalizeShortcut(shortcut: string) {
@@ -285,6 +839,142 @@ export function updateContact(contactId: Id, patch: Partial<Contact>) {
   // A conversa carrega uma cópia do contato (como a API vai devolver), então é atualizada junto.
   db.conversations = db.conversations.map((c) => (c.contact.id === contactId ? { ...c, contact: updated } : c));
   return updated;
+}
+
+// ---------- Contatos e organizações ----------
+
+const onlyDigits = (value: string) => value.replace(/\D/g, '');
+
+// Código curto sequencial, como o back-end fará: a pessoa dita "mil cento e dez", não um UUID.
+function nextContactCode() {
+  const highest = db.contacts.reduce((max, c) => Math.max(max, Number(c.code) || 0), 1000100);
+  return String(highest + 1);
+}
+
+export function createOrganization(input: OrganizationInput): Organization {
+  const name = input.name.trim();
+  if (!name) throw new Error('Informe o nome da organização.');
+  const existing = db.organizations.find((o) => o.name.toLowerCase() === name.toLowerCase());
+  if (existing) return existing;
+  const organization: Organization = {
+    id: id(),
+    name,
+    cnpj: input.cnpj?.trim() || undefined,
+    domain: input.domain?.trim().toLowerCase() || undefined,
+    notes: input.notes?.trim() || undefined,
+    createdAt: now(),
+  };
+  db.organizations = [...db.organizations, organization];
+  return organization;
+}
+
+export function updateOrganization(organizationId: Id, input: OrganizationInput) {
+  const current = db.organizations.find((o) => o.id === organizationId);
+  if (!current) throw new NotFound('Organização não encontrada.');
+  const name = input.name.trim();
+  if (!name) throw new Error('Informe o nome da organização.');
+  const updated: Organization = {
+    ...current,
+    name,
+    cnpj: input.cnpj?.trim() || undefined,
+    domain: input.domain?.trim().toLowerCase() || undefined,
+    notes: input.notes?.trim() || undefined,
+  };
+  db.organizations = db.organizations.map((o) => (o.id === organizationId ? updated : o));
+  // O nome está embutido em cada contato (e na cópia dentro da conversa): propaga a renomeação.
+  const ref: OrganizationRef = { id: updated.id, name: updated.name };
+  db.contacts = db.contacts.map((c) => (c.organization?.id === organizationId ? { ...c, organization: ref } : c));
+  db.conversations = db.conversations.map((c) =>
+    c.contact.organization?.id === organizationId ? { ...c, contact: { ...c.contact, organization: ref } } : c,
+  );
+  return updated;
+}
+
+// Organização com contatos não é removida: eles ficariam apontando para o vazio.
+export function deleteOrganization(organizationId: Id) {
+  const organization = db.organizations.find((o) => o.id === organizationId);
+  if (!organization) throw new NotFound('Organização não encontrada.');
+  const linked = db.contacts.filter((c) => c.organization?.id === organizationId).length;
+  if (linked > 0) throw new Error(`${linked} contato(s) pertencem a ${organization.name}. Troque a empresa deles antes de remover.`);
+  db.organizations = db.organizations.filter((o) => o.id !== organizationId);
+}
+
+// Resolve a empresa do formulário: id existente, nome novo (cria), ou nenhuma.
+function resolveOrganization(input: ContactInput): OrganizationRef | undefined {
+  const fresh = input.newOrganizationName?.trim();
+  if (fresh) {
+    const created = createOrganization({ name: fresh });
+    return { id: created.id, name: created.name };
+  }
+  if (!input.organizationId) return undefined;
+  const found = db.organizations.find((o) => o.id === input.organizationId);
+  if (!found) throw new NotFound('Organização não encontrada.');
+  return { id: found.id, name: found.name };
+}
+
+function validateContact(input: ContactInput, ignoreId?: Id) {
+  const name = input.name.trim();
+  const phone = input.phone.trim();
+  if (!name) throw new Error('Informe o nome do contato.');
+  if (onlyDigits(phone).length < 10) throw new Error('Informe o telefone com DDD. Ex.: +55 11 90000-0000.');
+  if (input.email?.trim() && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.email.trim())) throw new Error('E-mail inválido.');
+  // Telefone é a chave natural do contato (no banco, UNIQUE (tenant_id, phone)).
+  const clash = db.contacts.find((c) => c.id !== ignoreId && onlyDigits(c.phone) === onlyDigits(phone));
+  if (clash) throw new Error(`O telefone ${clash.phone} já é do contato ${clash.name} (${clash.code}).`);
+  return { name, phone };
+}
+
+export function createContact(input: ContactInput): Contact {
+  const clean = validateContact(input);
+  const contact: Contact = {
+    id: id(),
+    code: nextContactCode(),
+    name: clean.name,
+    phone: clean.phone,
+    email: input.email?.trim() || undefined,
+    jobTitle: input.jobTitle?.trim() || undefined,
+    organization: resolveOrganization(input),
+    cpf: input.cpf?.trim() || undefined,
+    cnpj: input.cnpj?.trim() || undefined,
+    notes: input.notes?.trim() || undefined,
+    tags: [],
+    createdAt: now(),
+  };
+  db.contacts = [...db.contacts, contact];
+  return contact;
+}
+
+export function saveContact(contactId: Id, input: ContactInput): Contact {
+  const current = db.contacts.find((c) => c.id === contactId);
+  if (!current) throw new NotFound('Contato não encontrado.');
+  const clean = validateContact(input, contactId);
+  return updateContact(contactId, {
+    name: clean.name,
+    phone: clean.phone,
+    email: input.email?.trim() || undefined,
+    jobTitle: input.jobTitle?.trim() || undefined,
+    organization: resolveOrganization(input),
+    cpf: input.cpf?.trim() || undefined,
+    cnpj: input.cnpj?.trim() || undefined,
+    notes: input.notes?.trim() || undefined,
+  });
+}
+
+export function setContactTags(contactId: Id, tags: Tag[]) {
+  return updateContact(contactId, { tags });
+}
+
+// Contato com conversa ou ticket não é removido: perderia o histórico que aponta para ele.
+export function deleteContact(contactId: Id) {
+  const contact = db.contacts.find((c) => c.id === contactId);
+  if (!contact) throw new NotFound('Contato não encontrado.');
+  const conversations = db.conversations.filter((c) => c.contact.id === contactId).length;
+  const tickets = db.tickets.filter((t) => t.contactId === contactId).length;
+  if (conversations > 0 || tickets > 0) {
+    const parts = [conversations && `${conversations} conversa(s)`, tickets && `${tickets} ticket(s)`].filter(Boolean);
+    throw new Error(`Este contato tem ${parts.join(' e ')}. O histórico impede a remoção.`);
+  }
+  db.contacts = db.contacts.filter((c) => c.id !== contactId);
 }
 
 export function createTag(name: string, color: TagColor): Tag {
@@ -486,8 +1176,17 @@ export function updateUser(userId: Id, input: { roleId: Id; queueIds: Id[] }) {
   if (isAdmin(user) && !nextRole.system && user.status === 'active' && activeAdmins().length === 1) {
     throw new Error('A empresa precisa de pelo menos um administrador ativo.');
   }
+  const previousRole = db.roles.find((r) => r.id === user.roleId);
   patchUser(userId, { roleId: input.roleId });
   setMemberships(userId, input.queueIds);
+  audit('updated', 'user', user.name, 'Alterou papel e filas do usuário', {
+    entityId: userId,
+    changes: diff(
+      { role: previousRole?.name, queues: db.queues.filter((q) => q.memberIds.includes(userId)).length },
+      { role: nextRole.name, queues: input.queueIds.length },
+      { role: 'Papel', queues: 'Filas' },
+    ),
+  });
 }
 
 // Desativar tira o acesso na hora e devolve os atendimentos da pessoa para as filas.
@@ -504,10 +1203,18 @@ export function setUserStatus(userId: Id, status: 'active' | 'disabled', actorId
       systemMessage(c.id, `Acesso de ${user.name} desativado; atendimento devolvido para a fila`);
     }
     new Set(orphaned.map((c) => db.conversations.find((x) => x.id === c.id)?.queueId)).forEach((q) => q && distribute(q));
+    audit('disabled', 'user', user.name, `Desativou o acesso; ${orphaned.length} atendimento(s) voltaram para a fila`, {
+      entityId: userId,
+      changes: [{ field: 'Estado', from: 'active', to: 'disabled' }],
+    });
     return orphaned.length;
   }
   if (user.status !== 'disabled') throw new Error('Este usuário não está desativado.');
   patchUser(userId, { status: 'active' });
+  audit('enabled', 'user', user.name, 'Reativou o acesso', {
+    entityId: userId,
+    changes: [{ field: 'Estado', from: 'disabled', to: 'active' }],
+  });
   return 0;
 }
 
@@ -522,6 +1229,10 @@ export function createRole(input: RoleInput): Role {
   validateRole(input);
   const role: Role = { ...input, name: input.name.trim(), description: input.description.trim(), id: id(), system: false };
   db.roles = [...db.roles, role];
+  audit('created', 'role', role.name, `Criou o papel com ${role.permissions.length} permissão(ões)`, {
+    entityId: role.id,
+    changes: [{ field: 'Permissões', to: role.permissions.join(', ') || 'nenhuma' }],
+  });
   return role;
 }
 
@@ -531,6 +1242,13 @@ export function updateRole(roleId: Id, input: RoleInput) {
   if (role.system) throw new Error('O papel Administrador não pode ser alterado.');
   validateRole(input, roleId);
   db.roles = db.roles.map((r) => (r.id === roleId ? { ...r, ...input, name: input.name.trim(), description: input.description.trim() } : r));
+  // Permissão é o que mais importa na trilha: lista o que entrou e o que saiu, não a contagem.
+  const added = input.permissions.filter((x) => !role.permissions.includes(x));
+  const removed = role.permissions.filter((x) => !input.permissions.includes(x));
+  const changes = diff({ name: role.name }, { name: input.name.trim() }, { name: 'Nome' });
+  if (added.length) changes.push({ field: 'Permissões concedidas', to: added.join(', ') });
+  if (removed.length) changes.push({ field: 'Permissões retiradas', to: removed.join(', ') });
+  audit('updated', 'role', input.name.trim(), 'Alterou o papel', { entityId: roleId, changes });
 }
 
 export function deleteRole(roleId: Id) {
@@ -541,6 +1259,7 @@ export function deleteRole(roleId: Id) {
   const inUse = db.users.filter((u) => u.roleId === roleId).length;
   if (inUse) throw new Error(`${inUse} usuário(s) usam este papel. Troque o papel deles antes de excluir.`);
   db.roles = db.roles.filter((r) => r.id !== roleId);
+  audit('deleted', 'role', role.name, 'Excluiu o papel', { entityId: roleId });
 }
 
 // ---------- Workflows: rascunho, publicação versionada e reversão ----------
@@ -594,6 +1313,11 @@ export function publishWorkflow(workflowId: Id, note: string, actorId: Id) {
   if (!note.trim()) throw new Error('Descreva o que mudou nesta versão.');
   const number = (workflow.versions.at(-1)?.number ?? 0) + 1;
   const version = { id: id(), number, definition: structuredClone(workflow.draft), note: note.trim(), publishedBy: actorId, publishedAt: now() };
+  const previous = workflow.versions.find((v) => v.id === workflow.publishedVersionId);
+  audit('published', 'workflow', workflow.name, `Publicou a versão ${number}: ${note.trim()}`, {
+    entityId: workflowId,
+    changes: [{ field: 'Versão publicada', from: previous ? String(previous.number) : undefined, to: String(number) }],
+  });
   return patchWorkflow(workflowId, { versions: [...workflow.versions, version], publishedVersionId: version.id });
 }
 

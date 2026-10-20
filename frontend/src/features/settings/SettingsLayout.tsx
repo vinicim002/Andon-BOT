@@ -1,5 +1,5 @@
 import { Navigate, NavLink, Outlet } from 'react-router';
-import { ListOrdered, MessageSquareQuote, Smartphone, UserCog, type LucideIcon } from 'lucide-react';
+import { BookOpen, ListOrdered, MessageSquareQuote, ScrollText, Smartphone, Sparkles, UserCog, Webhook, type LucideIcon } from 'lucide-react';
 import { useCurrentUser } from '../../app/permissions';
 import { EmptyState, LoadingState } from '../../design-system/components';
 import type { Permission } from '../../domain/types';
@@ -17,10 +17,19 @@ const sections: { title: string; items: Item[] }[] = [
     ],
   },
   {
+    title: 'Inteligência artificial',
+    items: [
+      { to: 'conhecimento', label: 'Base de conhecimento', icon: BookOpen, permission: 'settings.knowledge' },
+      { to: 'ia', label: 'Agente de IA', icon: Sparkles, permission: 'settings.ai' },
+    ],
+  },
+  {
     title: 'Empresa',
     items: [
       { to: 'usuarios', label: 'Usuários e papéis', icon: UserCog, permission: 'settings.users' },
-      { to: 'canais', label: 'Canais', icon: Smartphone, permission: 'settings.users', soon: true },
+      { to: 'canais', label: 'Canais', icon: Smartphone, permission: 'settings.channels' },
+      { to: 'integracoes', label: 'Integrações', icon: Webhook, permission: 'settings.integrations' },
+      { to: 'auditoria', label: 'Auditoria', icon: ScrollText, permission: 'settings.audit' },
     ],
   },
 ];

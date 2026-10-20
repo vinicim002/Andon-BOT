@@ -74,7 +74,7 @@ function NewTicketForm({ conversation, users, me, onCreated, onOpenChange }: Pro
               <option value="">Selecione…</option>
               {contacts.data?.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name} {c.organization ? `— ${c.organization}` : ''}
+                  {c.name} {c.organization ? `— ${c.organization.name}` : ''}
                 </option>
               ))}
             </Select>

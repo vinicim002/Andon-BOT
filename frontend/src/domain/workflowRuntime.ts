@@ -9,7 +9,7 @@ export type Vars = Record<string, unknown>;
 export type RunEvent =
   | { kind: 'bot'; text: string; options?: string[] }
   | { kind: 'system'; text: string }
-  | { kind: 'step'; nodeId: string; label: string; status: 'ok' | 'error' | 'skipped'; detail: string; durationMs: number };
+  | { kind: 'step'; nodeId: string; label: string; status: 'ok' | 'warn' | 'error' | 'skipped'; detail: string; durationMs: number };
 
 export type RunState = { vars: Vars; waitingNodeId?: string; finished: boolean; steps: number };
 
@@ -18,6 +18,17 @@ export type RunContext = {
   queueName: (id?: string) => string | undefined;
   tagName: (id?: string) => string | undefined;
   nodeLabel: (node: WorkflowNode) => string;
+  // Resolve a operação escolhida no nó, para o teste mostrar a chamada que sairia de verdade.
+  integrationCall: (
+    integrationId?: string,
+    operationId?: string,
+  ) => { label: string; method: string; url: string; disabled: boolean } | undefined;
+  // Pergunta à IA com as fontes do nó. Devolve o texto e as citações, ou o motivo do handoff.
+  askAi: (
+    question: string,
+    sourceIds: string[],
+    requireCitation: boolean,
+  ) => Promise<{ text: string; citations: { sourceName: string }[]; handoffReason?: string }>;
 };
 
 const MAX_STEPS = 40;
@@ -88,7 +99,7 @@ async function runFrom(def: WorkflowDefinition, startId: string | undefined, sta
     const node = def.nodes.find((n) => n.id === currentId);
     if (!node) break;
     const started = performance.now();
-    const step = (status: 'ok' | 'error' | 'skipped', detail: string) =>
+    const step = (status: 'ok' | 'warn' | 'error' | 'skipped', detail: string) =>
       emit({ kind: 'step', nodeId: node.id, label: ctx.nodeLabel(node), status, detail, durationMs: Math.round(performance.now() - started) });
     const c = node.config as Record<string, unknown>;
 
@@ -138,16 +149,50 @@ async function runFrom(def: WorkflowDefinition, startId: string | undefined, sta
         currentId = next(def, node.id, 'next');
         break;
       case 'http_request': {
-        const url = interpolate(String(c.url), state.vars);
-        const response = await simulateHttp(url);
-        state.vars[String(c.saveAs)] = response.body;
-        if (!response.ok) {
-          step('error', `${c.method} ${url} → ${response.status}. Fluxo encerrado; a conversa segue para atendimento humano.`);
+        const call = ctx.integrationCall(c.integrationId as string | undefined, c.operationId as string | undefined);
+        // Integração apagada ou operação renomeada depois da publicação: falha explicada,
+        // não silenciosa — o atendimento vai para uma pessoa.
+        if (!call) {
+          step('error', 'A integração deste passo não existe mais. Fluxo encerrado; a conversa segue para atendimento humano.');
           emit({ kind: 'system', text: 'Falha na integração: a conversa foi encaminhada para atendimento humano.' });
           state.finished = true;
           return;
         }
-        step('ok', `${c.method} ${url} → ${response.status}; guardado em {{${c.saveAs}.…}}`);
+        const url = interpolate(call.url, state.vars);
+        if (call.disabled) {
+          step('error', `${call.label} está desativada; a chamada não foi enviada. A conversa segue para atendimento humano.`);
+          emit({ kind: 'system', text: 'Falha na integração: a conversa foi encaminhada para atendimento humano.' });
+          state.finished = true;
+          return;
+        }
+        const response = await simulateHttp(url);
+        state.vars[String(c.saveAs)] = response.body;
+        if (!response.ok) {
+          step('error', `${call.label}: ${call.method} ${url} → ${response.status}. Fluxo encerrado; a conversa segue para atendimento humano.`);
+          emit({ kind: 'system', text: 'Falha na integração: a conversa foi encaminhada para atendimento humano.' });
+          state.finished = true;
+          return;
+        }
+        step('ok', `${call.label}: ${call.method} ${url} → ${response.status}; guardado em {{${c.saveAs}.…}}`);
+        currentId = next(def, node.id, 'next');
+        break;
+      }
+      case 'ai_answer': {
+        const answer = await ctx.askAi(
+          String(state.vars.mensagem ?? ''),
+          (c.sourceIds as string[]) ?? [],
+          Boolean(c.requireCitation),
+        );
+        // Handoff não é falha: é o comportamento correto quando a IA não deve responder.
+        if (answer.handoffReason) {
+          step('warn', `IA entregou para atendimento humano: ${answer.handoffReason}`);
+          emit({ kind: 'system', text: 'A IA encaminhou esta conversa para um atendente.' });
+          state.finished = true;
+          return;
+        }
+        emit({ kind: 'bot', text: answer.text });
+        const sources = answer.citations.map((citation) => citation.sourceName).join(', ');
+        step('ok', sources ? `IA respondeu citando ${sources}` : 'IA respondeu');
         currentId = next(def, node.id, 'next');
         break;
       }

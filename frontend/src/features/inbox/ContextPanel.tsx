@@ -12,7 +12,7 @@ import type { Conversation, OperationalQueue, Tag, Ticket, User } from '../../do
 import { cx } from '../../lib/cx';
 import { formatCountdown, formatDate } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
-import { EditContactDialog } from './EditContactDialog';
+import { ContactDialog } from '../contacts/ContactDialog';
 import { NewTagDialog } from './NewTagDialog';
 import s from './Inbox.module.css';
 
@@ -58,7 +58,7 @@ function About({ conversation: c, queues, users, ticket, onTagsChange, canEditCo
   // Resumo que o atendente cola em ferramentas de IA; com a IA governada, vira contexto automático.
   const copyAiContext = async () => {
     const summary = [
-      `Contato: ${contact.name}${contact.organization ? ` (${contact.organization})` : ''}`,
+      `Contato: ${contact.name}${contact.organization ? ` (${contact.organization.name})` : ''}`,
       contact.jobTitle && `Cargo: ${contact.jobTitle}`,
       `Etiquetas: ${c.tags.map((t) => t.name).join(', ') || 'nenhuma'}`,
       ticket && `Ticket: #${ticket.protocol} — ${ticket.subject}`,
@@ -87,7 +87,7 @@ function About({ conversation: c, queues, users, ticket, onTagsChange, canEditCo
             {(contact.jobTitle || contact.organization) && (
               <span>
                 <Building2 aria-hidden />
-                {[contact.jobTitle, contact.organization].filter(Boolean).join(' • ')}
+                {[contact.jobTitle, contact.organization?.name].filter(Boolean).join(' • ')}
               </span>
             )}
             {canEditContact && (
@@ -101,7 +101,7 @@ function About({ conversation: c, queues, users, ticket, onTagsChange, canEditCo
           <Field label="ID">#{contact.code}</Field>
           <Field label="WhatsApp">{contact.phone}</Field>
           <Field label="E-mail">{contact.email}</Field>
-          <Field label="Cargo e Empresa">{[contact.jobTitle, contact.organization].filter(Boolean).join(' · ') || undefined}</Field>
+          <Field label="Cargo e Empresa">{[contact.jobTitle, contact.organization?.name].filter(Boolean).join(' · ') || undefined}</Field>
           <Field label="CPF">{contact.cpf}</Field>
           <Field label="CNPJ">
             {contact.cnpj && (
@@ -208,7 +208,12 @@ function About({ conversation: c, queues, users, ticket, onTagsChange, canEditCo
         </div>
       </Card>
 
-      <EditContactDialog open={dialog === 'contact'} onOpenChange={(open) => setDialog(open ? 'contact' : null)} contact={contact} />
+      <ContactDialog
+        open={dialog === 'contact'}
+        onOpenChange={(open) => setDialog(open ? 'contact' : null)}
+        contact={contact}
+        onSaved={(_, message) => toast({ message })}
+      />
       <NewTagDialog
         open={dialog === 'tag'}
         onOpenChange={(open) => setDialog(open ? 'tag' : null)}

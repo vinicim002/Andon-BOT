@@ -39,6 +39,10 @@ export const router = createBrowserRouter([
       { path: 'tickets', lazy: page(() => import('../features/tickets/TicketsPage'), (m) => m.TicketsPage, 'tickets.view') },
       { path: 'tickets/:ticketId', lazy: page(() => import('../features/tickets/TicketDetailPage'), (m) => m.TicketDetailPage, 'tickets.view') },
       { path: 'contatos', lazy: page(() => import('../features/contacts/ContactsPage'), (m) => m.ContactsPage, 'contacts.view') },
+      {
+        path: 'contatos/:contactId',
+        lazy: page(() => import('../features/contacts/ContactDetailPage'), (m) => m.ContactDetailPage, 'contacts.view'),
+      },
       { path: 'painel', element: <PlaceholderPage title="Painel" description="Indicadores da operação em tempo real." /> },
       { path: 'filas', element: <Navigate to="/configuracoes/filas" replace /> },
       { path: 'workflows', lazy: page(() => import('../features/workflows/WorkflowsPage'), (m) => m.WorkflowsPage, 'workflows.manage') },
@@ -59,10 +63,23 @@ export const router = createBrowserRouter([
           { path: 'usuarios', lazy: page(() => import('../features/settings/UsersSettings'), (m) => m.UsersSettings, 'settings.users') },
           {
             path: 'canais',
-            lazy: () =>
-              import('../features/settings/SoonSection').then((m) => ({
-                element: <m.SoonSection title="Canais" description="Números de WhatsApp conectados pela Cloud API e, depois, webchat e voz." />,
-              })),
+            lazy: page(() => import('../features/settings/ChannelsSettings'), (m) => m.ChannelsSettings, 'settings.channels'),
+          },
+          {
+            path: 'integracoes',
+            lazy: page(() => import('../features/settings/IntegrationsSettings'), (m) => m.IntegrationsSettings, 'settings.integrations'),
+          },
+          {
+            path: 'conhecimento',
+            lazy: page(() => import('../features/settings/KnowledgeSettings'), (m) => m.KnowledgeSettings, 'settings.knowledge'),
+          },
+          {
+            path: 'ia',
+            lazy: page(() => import('../features/settings/AiSettings'), (m) => m.AiSettings, 'settings.ai'),
+          },
+          {
+            path: 'auditoria',
+            lazy: page(() => import('../features/settings/AuditSettings'), (m) => m.AuditSettings, 'settings.audit'),
           },
         ],
       },

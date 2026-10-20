@@ -46,6 +46,11 @@ export type Permission =
   | 'contacts.edit'
   | 'settings.queues'
   | 'settings.quick_replies'
+  | 'settings.channels'
+  | 'settings.integrations'
+  | 'settings.knowledge'
+  | 'settings.ai'
+  | 'settings.audit'
   | 'settings.users'
   | 'workflows.manage';
 
@@ -80,6 +85,24 @@ export interface Tag {
   color: TagColor;
 }
 
+// Organização é entidade própria (no banco, a tabela `organization`): vários contatos
+// apontam para a mesma empresa, e renomeá-la vale para todos de uma vez.
+export interface Organization {
+  id: Id;
+  name: string;
+  cnpj?: string;
+  // Domínio de e-mail, usado para sugerir a empresa de um contato novo.
+  domain?: string;
+  notes?: string;
+  createdAt: IsoDateTime;
+}
+
+// O contato embute nome e id da empresa, como a API vai serializar: a lista mostra a empresa
+// sem uma segunda consulta, e o id permite filtrar e navegar.
+export type OrganizationRef = Pick<Organization, 'id' | 'name'>;
+
+export type OrganizationInput = Omit<Organization, 'id' | 'createdAt'>;
+
 export interface Contact {
   id: Id;
   // Identificador curto exibido ao atendente (o id interno é UUID).
@@ -88,19 +111,80 @@ export interface Contact {
   phone: string;
   email?: string;
   jobTitle?: string;
-  organization?: string;
+  organization?: OrganizationRef;
   // CPF/CNPJ ficam em atributos de CRM; no banco, contact.attributes.
   cpf?: string;
   cnpj?: string;
+  notes?: string;
   tags: Tag[];
   createdAt: IsoDateTime;
 }
 
-export interface ChannelEndpoint {
+// O que a tela envia para criar ou editar um contato. A empresa vai por id — ou por nome novo,
+// quando a pessoa cria a organização no mesmo formulário.
+export interface ContactInput {
+  name: string;
+  phone: string;
+  email?: string;
+  jobTitle?: string;
+  organizationId?: Id;
+  newOrganizationName?: string;
+  cpf?: string;
+  cnpj?: string;
+  notes?: string;
+}
+
+// Estado da ligação com o provedor, não do canal em si: um número desconectado continua
+// existindo (e com histórico) — só para de receber e enviar.
+export type ChannelStatus = 'connected' | 'pending' | 'error' | 'disabled';
+
+// Qualidade e limite de envio vêm da Meta e não são editáveis aqui; só exibidos.
+export type QualityRating = 'green' | 'yellow' | 'red';
+export type MessagingTier = '250' | '1k' | '10k' | '100k' | 'unlimited';
+
+// O que outras entidades precisam saber do canal de origem: identificação, nunca credencial.
+// Conversa e mensagem carregam esta forma, não o endpoint completo.
+export interface ChannelEndpointRef {
   id: Id;
   channelType: ChannelType;
   name: string;
   address: string;
+}
+
+export interface ChannelEndpoint extends ChannelEndpointRef {
+  status: ChannelStatus;
+  // Configuração do adaptador de canal. O núcleo canônico não conhece estes campos:
+  // no banco eles ficam numa tabela do módulo `channel`, não em `channel_endpoint`.
+  // Só a tela de Canais lê isto — por isso não entra em `ChannelEndpointRef`.
+  whatsapp?: WhatsAppCloudConfig;
+}
+
+export interface WhatsAppCloudConfig {
+  wabaId: string;
+  phoneNumberId: string;
+  // Nome aprovado pela Meta; aparece para o cliente no WhatsApp.
+  verifiedName: string;
+  // O token permanente nunca volta do back-end — só os últimos dígitos, para conferência.
+  tokenHint: string;
+  // URL e token que a pessoa cola no painel da Meta para o webhook apontar para cá.
+  webhookUrl: string;
+  webhookVerifyToken: string;
+  quality?: QualityRating;
+  tier?: MessagingTier;
+  lastCheckedAt?: IsoDateTime;
+  // Motivo da última falha de verificação; some quando a conexão volta.
+  lastError?: string;
+}
+
+// O que a tela envia para conectar ou atualizar um número. O token só sobe: não desce nunca.
+export interface ChannelEndpointInput {
+  name: string;
+  address: string;
+  wabaId: string;
+  phoneNumberId: string;
+  accessToken: string;
+  // Filas que recebem as conversas deste número (N:N — no banco, endpoint_queue).
+  queueIds: Id[];
 }
 
 export type RoutingPolicy = 'round_robin' | 'manual';
@@ -126,7 +210,7 @@ export type DeliveryStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed
 export interface Conversation {
   id: Id;
   contact: Contact;
-  endpoint: ChannelEndpoint;
+  endpoint: ChannelEndpointRef;
   queueId?: Id;
   assigneeId?: Id;
   // Outros atendentes que participaram (aparecem na lista e na trilha).

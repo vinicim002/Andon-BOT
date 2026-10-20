@@ -21,7 +21,12 @@ export type NodeConfig = {
   add_tag: { tagId?: Id };
   open_ticket: { subject: string; priority: TicketPriority };
   internal_note: { text: string };
-  http_request: { method: 'GET' | 'POST'; url: string; saveAs: string };
+  // Aponta para uma operação de uma integração cadastrada: o autor do workflow escolhe
+  // da lista, não digita URL. Credencial, timeout e retentativa ficam na integração.
+  http_request: { integrationId?: Id; operationId?: Id; saveAs: string };
+  // Responde com a base de conhecimento. A autonomia e os limites vêm da política do tenant;
+  // aqui o fluxo escolhe as fontes, se exige citação e para onde entregar no handoff.
+  ai_answer: { sourceIds: Id[]; requireCitation: boolean; handoffQueueId?: Id };
   end: { resolve: boolean };
 };
 

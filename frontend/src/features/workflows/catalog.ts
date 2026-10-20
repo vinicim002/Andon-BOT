@@ -1,18 +1,4 @@
-import {
-  Flag,
-  GitBranch,
-  Globe,
-  ListTree,
-  MessageCircle,
-  MessageSquarePlus,
-  MessageSquareText,
-  NotebookPen,
-  Tag,
-  Ticket,
-  Type,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
+import { Flag, GitBranch, Globe, ListTree, MessageCircle, MessageSquarePlus, MessageSquareText, NotebookPen, Sparkles, Tag, Ticket, Type, Users, type LucideIcon } from 'lucide-react';
 import { ticketPriority } from '../../domain/labels';
 import type { ConditionOperator, NodeConfig, NodeType, WorkflowNode } from '../../domain/workflow';
 
@@ -114,8 +100,20 @@ export const catalog: { [T in NodeType]: Entry<T> } = {
     label: 'Consultar sistema (HTTP)',
     group: 'action',
     icon: Globe,
-    description: 'Chama uma API e guarda a resposta.',
-    summary: (c) => `${c.method} ${clip(c.url.replace(/^https?:\/\//, ''), 50)} → {{${c.saveAs}}}`,
+    description: 'Chama uma operação de uma integração cadastrada e guarda a resposta.',
+    // O resumo no canvas não resolve nomes (não tem acesso à lista de integrações):
+    // mostra que está configurado e onde a resposta é guardada.
+    summary: (c) => (c.integrationId && c.operationId ? `Integração → {{${c.saveAs}}}` : 'Escolha a integração'),
+  },
+  ai_answer: {
+    label: 'Responder com IA',
+    group: 'action',
+    icon: Sparkles,
+    description: 'A IA responde usando a base de conhecimento e entrega para uma pessoa quando não sabe.',
+    summary: (c) =>
+      c.sourceIds.length === 0
+        ? 'Todas as fontes indexadas'
+        : `${c.sourceIds.length} fonte(s)${c.requireCitation ? ' · exige citação' : ''}`,
   },
   end: {
     label: 'Encerrar',

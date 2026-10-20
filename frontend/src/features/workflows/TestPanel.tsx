@@ -35,7 +35,8 @@ export function TestPanel({ definition, context, issues, onMarks, onClose }: Pro
   // Marca no canvas por onde a execução passou (e onde está esperando).
   useEffect(() => {
     const marks: Record<string, RunMark> = {};
-    for (const e of entries) if (e.kind === 'step') marks[e.nodeId] = e.status === 'error' ? 'error' : 'ok';
+    for (const e of entries)
+      if (e.kind === 'step') marks[e.nodeId] = e.status === 'error' ? 'error' : e.status === 'warn' ? 'warn' : 'ok';
     if (state?.waitingNodeId) marks[state.waitingNodeId] = 'waiting';
     onMarks(marks);
   }, [entries, state, onMarks]);
@@ -161,7 +162,15 @@ export function TestPanel({ definition, context, issues, onMarks, onClose }: Pro
         <ol>
           {steps.map((step, i) => (
             <li key={i} className={s[`log-${step.status}`]}>
-              {step.status === 'ok' ? <CheckCircle2 aria-hidden /> : step.status === 'error' ? <XCircle aria-hidden /> : <CircleDashed aria-hidden />}
+              {step.status === 'ok' ? (
+                <CheckCircle2 aria-hidden />
+              ) : step.status === 'error' ? (
+                <XCircle aria-hidden />
+              ) : step.status === 'warn' ? (
+                <AlertTriangle aria-hidden />
+              ) : (
+                <CircleDashed aria-hidden />
+              )}
               <span>
                 <strong>{step.label}</strong>
                 {step.detail}

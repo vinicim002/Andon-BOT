@@ -175,7 +175,7 @@ function ConversationItem({ conversation: c, selected, onSelect, queue, users, n
         <span className={s.itemTop}>
           <span className={s.itemName}>
             <strong>{c.contact.name}</strong>
-            {c.contact.organization && <span> • {c.contact.organization}</span>}
+            {c.contact.organization && <span> • {c.contact.organization.name}</span>}
           </span>
           {slaOverdueMin !== undefined && slaOverdueMin >= 0 ? (
             <Tooltip content="Prazo de primeira resposta vencido" side="top">

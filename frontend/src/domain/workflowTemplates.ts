@@ -15,7 +15,8 @@ export function defaultConfig<T extends NodeType>(type: T): NodeConfig[T] {
     add_tag: {},
     open_ticket: { subject: '', priority: 'normal' },
     internal_note: { text: '' },
-    http_request: { method: 'GET', url: 'https://', saveAs: 'resultado' },
+    http_request: { saveAs: 'resultado' },
+  ai_answer: { sourceIds: [], requireCitation: true },
     end: { resolve: false },
   };
   return structuredClone(defaults[type]);
@@ -59,7 +60,7 @@ const definitions: Record<WorkflowTemplate, () => WorkflowDefinition> = {
     nodes: [
       node('start', 'trigger_keyword', 300, 0, { keywords: ['pedido', 'rastreio', 'entrega'] }),
       node('wait', 'send_message', 300, 130, { text: 'Vou consultar seu pedido, {{contato.nome}}. Só um instante…' }),
-      node('erp', 'http_request', 300, 260, { method: 'GET', url: 'https://erp.exemplo.com.br/pedidos?cliente={{contato.nome}}', saveAs: 'pedido' }),
+      node('erp', 'http_request', 300, 260, { integrationId: 'i1', operationId: 'i1-op1', saveAs: 'pedido' }),
       node('delivered', 'condition', 300, 400, { field: 'pedido.status', operator: 'equals', value: 'Entregue' }),
       node('done', 'send_message', 60, 560, { text: 'Seu pedido {{pedido.numero}} já foi entregue ✅ Posso ajudar em algo mais?' }),
       node('eta', 'send_message', 540, 560, { text: 'Seu pedido {{pedido.numero}} está {{pedido.status}}, com previsão de entrega {{pedido.previsao}}. 🚚' }),

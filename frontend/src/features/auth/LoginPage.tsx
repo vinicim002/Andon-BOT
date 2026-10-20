@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
-import { AlertCircle, ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
-import { ApiError } from '../../api';
+import { AlertCircle, ArrowRight, Eye, EyeOff, LoaderCircle, Zap } from 'lucide-react';
+import { ApiError, demoAccess } from '../../api';
 import { useSession } from '../../app/useSession';
 import { BrandSymbol } from '../../design-system/BrandSymbol';
 import { formatDate } from '../../lib/format';
@@ -20,18 +20,17 @@ export function LoginPage() {
 
   if (user) return <Navigate to={from} replace />;
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const enter = async (emailValue: string, passwordValue: string) => {
     if (submitting) return;
     // Validação no envio, não botão desabilitado: o botão fica sempre legível e o erro explica o que falta.
-    if (!email.trim() || !password) {
+    if (!emailValue.trim() || !passwordValue) {
       setError('Informe seu e-mail e sua senha.');
       return;
     }
     setError('');
     setSubmitting(true);
     try {
-      await signIn(email.trim(), password);
+      await signIn(emailValue.trim(), passwordValue);
       navigate(from, { replace: true });
     } catch (failure) {
       // 401: mesma mensagem para usuário inexistente e senha errada, de propósito.
@@ -41,6 +40,19 @@ export function LoginPage() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    void enter(email, password);
+  };
+
+  // Atalho de desenvolvimento: preenche os campos à vista e entra, para não digitar a conta de
+  // demonstração a cada recarregamento. `import.meta.env.DEV` garante que não vai para o build.
+  const enterWithDemoAccess = () => {
+    setEmail(demoAccess.email);
+    setPassword(demoAccess.password);
+    void enter(demoAccess.email, demoAccess.password);
   };
 
   return (
@@ -115,6 +127,18 @@ export function LoginPage() {
             {submitting ? 'Entrando…' : 'Entrar'}
             {!submitting && <ArrowRight aria-hidden />}
           </button>
+
+          {import.meta.env.DEV && (
+            <button type="button" className={s.demoAccess} onClick={enterWithDemoAccess} disabled={submitting}>
+              <Zap aria-hidden />
+              <span>
+                Entrar com a conta de demonstração
+                <small>
+                  {demoAccess.email} · senha {demoAccess.password}
+                </small>
+              </span>
+            </button>
+          )}
         </form>
 
         <footer className={s.footer}>

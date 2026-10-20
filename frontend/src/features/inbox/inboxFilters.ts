@@ -35,7 +35,7 @@ export function matchesSearch(c: Conversation, term: string, protocol?: string) 
   const digits = text.replace(/\D/g, '');
   return (
     c.contact.name.toLowerCase().includes(text) ||
-    Boolean(c.contact.organization?.toLowerCase().includes(text)) ||
+    Boolean(c.contact.organization?.name.toLowerCase().includes(text)) ||
     (digits.length >= 3 && (c.contact.phone.replace(/\D/g, '').includes(digits) || Boolean(protocol?.includes(digits))))
   );
 }

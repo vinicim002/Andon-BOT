@@ -52,9 +52,15 @@ function configIssues(node: WorkflowNode): string[] {
       return c.tagId ? [] : ['Escolha a etiqueta.'];
     case 'open_ticket':
       return blank(c.subject) ? ['Informe o assunto do ticket.'] : [];
+    case 'ai_answer':
+      // Citação obrigatória sem fonte escolhida só é válida se a política do tenant liberar
+      // todas as indexadas — o nó com lista vazia significa exatamente isso.
+      return [];
     case 'http_request':
       return [
-        ...(/^https?:\/\/\S+$/.test(String(c.url ?? '')) ? [] : ['Informe uma URL começando com http:// ou https://.']),
+        // A integração e a operação vêm de cadastro: o nó só guarda as referências.
+        ...(c.integrationId ? [] : ['Escolha a integração que este passo vai chamar.']),
+        ...(c.operationId ? [] : ['Escolha a operação da integração.']),
         ...(/^[a-z][a-z0-9_]*$/.test(String(c.saveAs ?? '')) ? [] : ['“Guardar como” deve usar letras minúsculas, números ou _.']),
       ];
     default:

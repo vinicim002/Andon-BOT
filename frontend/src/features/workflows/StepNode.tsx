@@ -7,7 +7,7 @@ import { cx } from '../../lib/cx';
 import { catalog } from './catalog';
 import s from './Editor.module.css';
 
-export type RunMark = 'ok' | 'error' | 'waiting';
+export type RunMark = 'ok' | 'warn' | 'error' | 'waiting';
 
 export type StepNodeData = { node: WorkflowNode; summary: string; issues: number; run?: RunMark };
 export type StepFlowNode = Node<StepNodeData, 'step'>;
