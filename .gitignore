@@ -6,6 +6,10 @@ doc/
 # Bot antigo: repositório próprio, usado só como referência local.
 handle-bot-antigo/
 
+# --- Deploy ---
+# Vínculo local com o projeto da Vercel (ids da conta); a configuração versionada é vercel.json.
+.vercel
+
 # --- Pastas de ferramentas de IA ---
 # .claude/ é a pasta de contexto do projeto, mas fica só na máquina de cada pessoa.
 .claude/
