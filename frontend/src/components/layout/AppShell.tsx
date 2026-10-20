@@ -1,17 +1,19 @@
 import { useEffect } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { DropdownMenu } from 'radix-ui';
-import { Bell, Check, LayoutDashboard, LogOut, MessagesSquare, Moon, Settings, Sun, Ticket, Users, Workflow, type LucideIcon } from 'lucide-react';
+import { Bell, Check, LayoutDashboard, LogOut, Menu, MessagesSquare, Moon, Settings, Sun, Ticket, Users, Workflow, type LucideIcon } from 'lucide-react';
 import { api } from '../../api';
-import { useCurrentUser } from '../../app/permissions';
+import { useQuery } from '../../api/useQuery';
+import { canSeeSettings, useCurrentUser } from '../../app/permissions';
 import { useSession } from '../../app/useSession';
 import { useTheme } from '../../app/theme';
 import { BrandSymbol } from '../../design-system/BrandSymbol';
 import { Avatar, Tooltip, TooltipProvider } from '../../design-system/components';
-import { useToast } from '../../design-system/useToast';
 import { availability as availabilityLabels, pauseReasons } from '../../domain/labels';
 import type { Availability, Permission, User } from '../../domain/types';
+import { visibleConversations } from '../../features/inbox/inboxFilters';
 import { cx } from '../../lib/cx';
+import { useChangeAvailability } from './useChangeAvailability';
 import s from './AppShell.module.css';
 
 type NavItem = { to: string; label: string; icon: LucideIcon; badge?: number; permission?: Permission };
@@ -28,6 +30,22 @@ const navigation: NavItem[][] = [
     { to: '/painel', label: 'Painel', icon: LayoutDashboard },
   ],
 ];
+
+// No celular cabem quatro abas com rótulo, como nos apps de mensagem. O que é de gestão
+// (workflows, painel, configurações, status, tema) vai para "Mais".
+const mobileTabs: NavItem[] = [
+  { to: '/inbox', label: 'Atendimentos', icon: MessagesSquare },
+  { to: '/tickets', label: 'Tickets', icon: Ticket, permission: 'tickets.view' },
+  { to: '/contatos', label: 'Contatos', icon: Users, permission: 'contacts.view' },
+  { to: '/mais', label: 'Mais', icon: Menu },
+];
+
+// Telas de detalhe ocupam o celular inteiro, sem as abas — como uma conversa no WhatsApp.
+// Elas têm seta de voltar própria.
+function isDetailScreen(pathname: string, search: string) {
+  if (pathname === '/inbox') return new URLSearchParams(search).has('c');
+  return /^\/(tickets|contatos|workflows|configuracoes)\/.+/.test(pathname);
+}
 
 function RailLink({ item }: { item: NavItem }) {
   const Icon = item.icon;
@@ -47,9 +65,10 @@ export function AppShell() {
   const { theme, toggleTheme } = useTheme();
   const { signOut } = useSession();
   const navigate = useNavigate();
+  const { pathname, search } = useLocation();
   // Disponibilidade, papel e status mudam durante o uso; por isso o usuário vem da API, não da sessão.
   const { me, can } = useCurrentUser();
-  const canSettings = can('settings.queues') || can('settings.quick_replies') || can('settings.users');
+  const canSettings = canSeeSettings(can);
 
   // Acesso desativado enquanto a pessoa estava logada: sai na hora.
   useEffect(() => {
@@ -61,7 +80,7 @@ export function AppShell() {
 
   return (
     <TooltipProvider>
-      <div className={s.shell}>
+      <div className={cx(s.shell, isDetailScreen(pathname, search) && s.detail)}>
         <nav className={s.rail} aria-label="Navegação principal">
           <BrandSymbol className={s.brand} />
 
@@ -96,26 +115,51 @@ export function AppShell() {
         <main className={s.content}>
           <Outlet />
         </main>
+
+        {me && <TabBar me={me} can={can} />}
       </div>
     </TooltipProvider>
+  );
+}
+
+// "Mais" fica ativa também nas telas que só se alcançam por ela.
+const tabSections: Record<string, string[]> = { '/mais': ['/mais', '/configuracoes', '/workflows', '/painel'] };
+
+function TabBar({ me, can }: { me: User; can: (p: Permission) => boolean }) {
+  const { pathname } = useLocation();
+  // Contador de conversas não lidas na aba, como o "26" das referências. Usa a mesma regra de
+  // visibilidade da lista: um atendente não vê contagem de filas que não são dele.
+  const data = useQuery(() => Promise.all([api.conversations(), api.queues()]));
+  const unread = data.data
+    ? visibleConversations(data.data[0], me.id, data.data[1], can('conversations.view_all')).filter((c) => c.unreadCount > 0).length
+    : 0;
+  const isActive = (to: string) => (tabSections[to] ?? [to]).some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  return (
+    <nav className={s.tabBar} aria-label="Navegação principal">
+      {mobileTabs
+        .filter((tab) => !tab.permission || can(tab.permission))
+        .map(({ to, label, icon: Icon }) => (
+          <Link key={to} to={to} className={s.tab} aria-current={isActive(to) ? 'page' : undefined}>
+            <span className={s.tabPill}>
+              <Icon aria-hidden />
+              {to === '/inbox' && unread > 0 && (
+                <span className={s.tabBadge} aria-label={`${unread} conversas não lidas`}>
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
+            </span>
+            {label}
+          </Link>
+        ))}
+    </nav>
   );
 }
 
 function AccountMenu({ me }: { me: User }) {
   const { signOut } = useSession();
   const navigate = useNavigate();
-  const toast = useToast();
-
-  const setStatus = async (next: Availability, reason?: string) => {
-    try {
-      const received = await api.setAvailability(me.id, next, reason);
-      const label = next === 'paused' ? `Em pausa${reason ? ` — ${reason}` : ''}` : availabilityLabels[next].label;
-      toast({ message: received ? `${label}. Você recebeu ${received} atendimento(s) da fila.` : `Status: ${label}.` });
-    } catch {
-      toast({ message: 'Não foi possível mudar o status.', tone: 'error' });
-    }
-  };
-
+  const setStatus = useChangeAvailability(me);
   const statusLine = me.availability === 'paused' && me.pauseReason ? `Em pausa — ${me.pauseReason}` : availabilityLabels[me.availability].label;
 
   return (

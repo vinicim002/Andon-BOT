@@ -1,4 +1,12 @@
-import type { Conversation, Id } from '../../domain/types';
+import type { Conversation, Id, OperationalQueue } from '../../domain/types';
+
+// Sem "ver todos", a pessoa só enxerga os atendimentos dela e os das filas de que participa.
+// Compartilhado entre a lista e o contador da aba no celular, para os dois nunca divergirem.
+export function visibleConversations(conversations: Conversation[], meId: Id, queues: OperationalQueue[], canViewAll: boolean) {
+  if (canViewAll) return conversations;
+  const myQueues = new Set(queues.filter((q) => q.memberIds.includes(meId)).map((q) => q.id));
+  return conversations.filter((c) => c.assigneeId === meId || (c.queueId !== undefined && myQueues.has(c.queueId)));
+}
 
 // Abas de status da lista. Agrupam os estados canônicos da conversa na visão do atendente.
 export type StatusTab = 'bot' | 'pending' | 'open' | 'resolved';

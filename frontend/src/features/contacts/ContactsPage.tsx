@@ -10,6 +10,8 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  MobileList,
+  MobileListRow,
   Page,
   PageHeader,
   TagChip,
@@ -19,6 +21,7 @@ import { useToast } from '../../design-system/useToast';
 import type { Contact, Id, Organization, Tag } from '../../domain/types';
 import { formatDate } from '../../lib/format';
 import { cx } from '../../lib/cx';
+import { useIsMobile } from '../../lib/useIsMobile';
 import { ContactDialog } from './ContactDialog';
 import { OrganizationDialog } from './OrganizationDialog';
 import { OrganizationsPanel } from './OrganizationsPanel';
@@ -129,6 +132,7 @@ type PeopleProps = {
 function PeoplePanel({ contacts, organizations, tags, organizationId, onOrganizationChange }: PeopleProps) {
   const [search, setSearch] = useState('');
   const [tagId, setTagId] = useState('');
+  const mobile = useIsMobile();
 
   const visible = useMemo(
     () =>
@@ -193,6 +197,27 @@ function PeoplePanel({ contacts, organizations, tags, organizationId, onOrganiza
         ) : (
           <EmptyState title="Nenhum contato ainda" description="Contatos surgem automaticamente nas conversas." />
         )
+      ) : mobile ? (
+        <MobileList>
+          {visible.map((contact) => (
+            <MobileListRow
+              key={contact.id}
+              to={`/contatos/${contact.id}`}
+              leading={<Avatar name={contact.name} size={46} />}
+              title={contact.name}
+              meta={contact.code}
+              subtitle={[contact.organization?.name, contact.phone].filter(Boolean).join(' · ')}
+              footer={
+                contact.tags.length > 0 &&
+                contact.tags.map((tag) => (
+                  <TagChip key={tag.id} color={tag.color}>
+                    {tag.name}
+                  </TagChip>
+                ))
+              }
+            />
+          ))}
+        </MobileList>
       ) : (
         <DataTable>
           <thead>

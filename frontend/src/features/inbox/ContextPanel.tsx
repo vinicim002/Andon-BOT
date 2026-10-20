@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { DropdownMenu } from 'radix-ui';
-import { Building2, ChevronDown, ChevronRight, Copy, Link2, Plus, Tag as TagIcon, Ticket as TicketIcon, Timer } from 'lucide-react';
+import { ArrowLeft, Building2, ChevronDown, ChevronRight, Copy, Link2, Plus, Tag as TagIcon, Ticket as TicketIcon, Timer } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { Avatar, Badge, Button, EmptyState, LoadingState, TagChip } from '../../design-system/components';
@@ -24,6 +24,8 @@ type Props = {
   onTagsChange: (tags: Tag[], message: string) => void;
   canEditContact: boolean;
   onOpenTicket?: () => void;
+  // Celular: o painel vira tela própria e precisa de um jeito de voltar à conversa.
+  onClose?: () => void;
 };
 
 export function ContextPanel(props: Props) {
@@ -31,6 +33,12 @@ export function ContextPanel(props: Props) {
 
   return (
     <aside className={s.context} aria-label="Detalhes do atendimento">
+      {props.onClose && (
+        <header className={s.contextHeader}>
+          <Button variant="ghost" iconOnlyLabel="Voltar para a conversa" icon={<ArrowLeft />} onClick={props.onClose} />
+          <h2>Dados do contato</h2>
+        </header>
+      )}
       <div className={s.contextTabs} role="tablist">
         <button type="button" role="tab" aria-selected={tab === 'about'} className={cx(s.contextTab, tab === 'about' && s.contextTabActive)} onClick={() => setTab('about')}>
           Sobre

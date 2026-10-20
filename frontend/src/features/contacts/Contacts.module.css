@@ -339,3 +339,35 @@
 .menuDanger {
   color: var(--tone-danger-fg);
 }
+
+/* Celular: busca na largura toda e os dois filtros lado a lado embaixo dela. */
+@media (max-width: 760px) {
+  .searchBox {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+  .toolbar select {
+    flex: 1;
+    min-width: 0;
+  }
+  .count {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+/* Ícone da organização na lista do celular, no tamanho dos avatares das outras linhas. */
+.orgIconLarge {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--bg-chip);
+  color: var(--text-secondary);
+}
+.orgIconLarge svg {
+  width: 20px;
+  height: 20px;
+}

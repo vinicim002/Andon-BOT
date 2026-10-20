@@ -3,7 +3,21 @@ import { useQuery } from '../api/useQuery';
 import type { Permission, Role, User } from '../domain/types';
 import { useSession } from './useSession';
 
-type CurrentUser = { me?: User; role?: Role; can: (permission: Permission) => boolean; loading: boolean };
+// Qualquer permissão de configuração dá acesso à área; a área mostra só as seções do papel.
+const settingsPermissions: Permission[] = [
+  'settings.queues',
+  'settings.quick_replies',
+  'settings.users',
+  'settings.channels',
+  'settings.integrations',
+  'settings.knowledge',
+  'settings.ai',
+  'settings.audit',
+];
+
+export const canSeeSettings = (can: (permission: Permission) => boolean) => settingsPermissions.some(can);
+
+type CurrentUser ={ me?: User; role?: Role; can: (permission: Permission) => boolean; loading: boolean };
 
 // Usuário logado + papel, lidos ao vivo (papel ou status podem mudar durante o uso).
 // As permissões só ajustam a interface; quem garante o acesso é o back-end.

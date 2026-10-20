@@ -22,6 +22,9 @@
 .list {
   display: flex;
   flex-direction: column;
+  /* Item de grid nasce com min-width: auto: sem isto, uma prévia longa alarga a coluna além
+     da tela no celular e empurra horário, contador e botões para fora. */
+  min-width: 0;
   min-height: 0;
   border-right: 1px solid var(--border);
 }
@@ -960,7 +963,7 @@ button.cardHeader {
 }
 
 /* ======================= Responsivo ======================= */
-/* Abaixo de 1280px os detalhes saem; abaixo de 760px a lista fica sobre a conversa. */
+/* Abaixo de 1280px os detalhes saem; abaixo de 760px vira uma tela por vez (bloco seguinte). */
 @media (max-width: 1280px) {
   .inbox {
     grid-template-columns: 340px minmax(0, 1fr);
@@ -972,20 +975,163 @@ button.cardHeader {
     grid-column: 2;
   }
 }
+/* ---------- Celular: uma tela por vez, como no WhatsApp ----------
+   Lista → conversa (.chatOpen) → dados do contato (.infoOpen). As abas do app somem nas duas
+   últimas (AppShell), então cada tela tem a altura inteira do aparelho. */
+.convIdentity {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.convIdentity:active {
+  background: var(--bg-hover);
+}
+.backButton {
+  flex-shrink: 0;
+}
+
+.contextHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 56px;
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+.contextHeader h2 {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
 @media (max-width: 760px) {
   .inbox {
-    grid-template-columns: 1fr;
-    grid-template-rows: 45% 55%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
   }
   .list {
     border-right: none;
-    border-bottom: 1px solid var(--border);
   }
-  .convHeader {
-    flex-wrap: wrap;
-  }
+  .conversation,
+  .context,
   .noSelection {
-    grid-column: 1;
+    display: none;
+  }
+  .chatOpen .list {
+    display: none;
+  }
+  .chatOpen .conversation {
+    display: flex;
+  }
+  .infoOpen .conversation {
+    display: none;
+  }
+  .infoOpen .context {
+    display: flex;
+    border-left: none;
+  }
+
+  /* Lista: título grande e filtros em pílula, como as referências. */
+  .listHeader {
+    min-height: 64px;
+    padding: var(--space-3) var(--space-3) var(--space-2) var(--space-4);
+  }
+  .listTitle {
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+  }
+  .chips {
+    gap: var(--space-2);
+    padding: 0 var(--space-4) var(--space-3);
+  }
+  .chip {
+    height: 34px;
+    padding: 0 var(--space-4);
+    font-size: var(--text-sm);
+  }
+  .tabs {
+    padding: 0 var(--space-2) var(--space-2);
+  }
+  .item {
+    padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
+  }
+  .item:active {
+    background: var(--bg-hover);
+  }
+
+  /* Conversa: cabeçalho enxuto, balões largos e campo de mensagem colado embaixo. */
+  .convHeader {
+    gap: 2px;
+    min-height: 56px;
+    padding: 4px var(--space-1);
+  }
+  .convHeaderCompact .convTitle strong {
+    overflow: hidden;
+    font-size: var(--text-lg);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .convActions {
+    gap: 0;
+  }
+  .messages {
+    padding: var(--space-3);
+  }
+  .bubble {
+    max-width: 85%;
+  }
+  .composerArea {
+    padding: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom));
+  }
+  .composerTabs {
+    gap: var(--space-3);
+    padding: 0 var(--space-3);
+  }
+  /* Uma linha que cresce com o texto (Chrome); no Safari fica numa altura fixa e rola. */
+  .composer textarea {
+    min-height: 44px;
+    max-height: 128px;
+    padding: var(--space-2) var(--space-3);
+    field-sizing: content;
+  }
+  /* Enviar vira o botão redondo e cheio das referências — no azul do Andon. */
+  .sendButton {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: var(--text-on-accent);
+  }
+  /* Mesma especificidade do :hover do botão ghost: no toque o hover "gruda" depois do clique
+     e deixaria o botão cinza. */
+  .sendButton:hover:not(:disabled) {
+    background: var(--accent-hover);
+    color: var(--text-on-accent);
+  }
+  .sendButton:disabled {
+    background: var(--bg-chip);
+    color: var(--text-muted);
+  }
+  /* "Enter envia, Shift+Enter quebra linha" é dica de teclado físico. */
+  .composerHint {
+    display: none;
+  }
+  .composerNotice {
+    margin: var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom));
+  }
+
+  .contextTabs {
+    min-height: 48px;
   }
 }
 

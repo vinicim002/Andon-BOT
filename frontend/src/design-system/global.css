@@ -15,6 +15,20 @@ body,
   margin: 0;
 }
 
+/* iOS aumenta a fonte sozinho ao girar o aparelho; o layout já é responsivo. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Sem o atraso de toque duplo nos alvos clicáveis. */
+button,
+a,
+label,
+summary {
+  touch-action: manipulation;
+}
+
 body {
   font-family: var(--font-sans);
   font-size: var(--text-md);
@@ -46,6 +60,17 @@ a {
 :focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+}
+
+/* O iOS dá zoom em qualquer campo com fonte abaixo de 16px ao focar — e não desfaz. No celular,
+   todo campo de texto fica com 16px. `!important` porque os componentes definem a fonte por
+   classe; esta regra precisa vencer todas elas. */
+@media (max-width: 760px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 .visually-hidden {

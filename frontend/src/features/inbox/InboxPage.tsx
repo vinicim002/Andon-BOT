@@ -11,7 +11,10 @@ import { NewTicketDialog } from '../tickets/NewTicketDialog';
 import { ContextPanel } from './ContextPanel';
 import { ConversationList } from './ConversationList';
 import { ConversationView } from './ConversationView';
-import { matchesFilter, matchesSearch, statusTabOf, type InboxFilter, type StatusTab } from './inboxFilters';
+import { cx } from '../../lib/cx';
+import { useGoBack } from '../../lib/useGoBack';
+import { useIsMobile } from '../../lib/useIsMobile';
+import { matchesFilter, matchesSearch, statusTabOf, visibleConversations, type InboxFilter, type StatusTab } from './inboxFilters';
 import { TransferDialog } from './TransferDialog';
 import s from './Inbox.module.css';
 
@@ -26,11 +29,7 @@ export function InboxPage() {
 
   const [queues, users, tickets, quickReplies] = reference.data;
   const me = users.find((u) => u.id === current.id) ?? current;
-  // Sem "ver todos", a pessoa só enxerga os atendimentos dela e os das filas de que participa.
-  const myQueues = new Set(queues.filter((q) => q.memberIds.includes(me.id)).map((q) => q.id));
-  const allowed = can('conversations.view_all')
-    ? conversations.data
-    : conversations.data.filter((c) => c.assigneeId === me.id || (c.queueId !== undefined && myQueues.has(c.queueId)));
+  const allowed = visibleConversations(conversations.data, me.id, queues, can('conversations.view_all'));
   return <Inbox conversations={allowed} queues={queues} users={users} tickets={tickets} quickReplies={quickReplies} me={me} can={can} />;
 }
 
@@ -47,11 +46,16 @@ type InboxProps = {
 function Inbox({ conversations, queues, users, tickets, quickReplies, me, can }: InboxProps) {
   const toast = useToast();
   const navigate = useNavigate();
+  const goBack = useGoBack();
+  const mobile = useIsMobile();
   const [params, setParams] = useSearchParams();
 
   // A conversa aberta fica na URL (?c=), para links vindos de outras telas (ex.: ticket).
-  const selectedId = params.get('c') ?? conversations.find((c) => statusTabOf(c) === 'open')?.id;
+  // No celular nada abre sozinho: a lista é a tela inicial, como no WhatsApp.
+  const selectedId = params.get('c') ?? (mobile ? undefined : conversations.find((c) => statusTabOf(c) === 'open')?.id);
   const selected = conversations.find((c) => c.id === selectedId);
+  // Dados do contato em tela própria (?info=1), só no celular; no desktop é a coluna da direita.
+  const showInfo = mobile && Boolean(selected) && params.get('info') === '1';
 
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [tabChoice, setTab] = useState<StatusTab>('open');
@@ -110,7 +114,7 @@ function Inbox({ conversations, queues, users, tickets, quickReplies, me, can }:
   const userName = (id: Id) => users.find((u) => u.id === id)?.name ?? '';
 
   return (
-    <div className={s.inbox}>
+    <div className={cx(s.inbox, selected && s.chatOpen, showInfo && s.infoOpen)}>
       <ConversationList
         conversations={visible}
         counts={counts}
@@ -162,9 +166,13 @@ function Inbox({ conversations, queues, users, tickets, quickReplies, me, can }:
                 ? run(api.conversation.send(selected.id, body, true, me.id), 'Anotação salva. Só a equipe vê.')
                 : api.conversation.send(selected.id, body, false, me.id).catch(() => toast({ message: 'Falha ao enviar a mensagem.', tone: 'error' }))
             }
+            compact={mobile}
+            onBack={mobile ? () => goBack('/inbox') : undefined}
+            onShowInfo={mobile ? () => setParams({ c: selected.id, info: '1' }) : undefined}
           />
           <ContextPanel
             key={`ctx-${selected.id}`}
+            onClose={mobile ? () => goBack(`/inbox?c=${selected.id}`) : undefined}
             conversation={selected}
             queues={queues}
             users={users}

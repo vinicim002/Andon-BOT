@@ -542,6 +542,104 @@
   }
 }
 
+/* ---------- Celular: lista de seções e seção em tela própria ---------- */
+.navChevron,
+.sectionBack {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  /* /configuracoes: só a lista, em linhas de toque agrupadas em cartões. */
+  .layoutIndex .content {
+    display: none;
+  }
+  .layoutIndex .nav {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: var(--space-5);
+    padding: var(--space-4);
+    border-bottom: none;
+    background: transparent;
+  }
+  .layoutIndex .navTitle {
+    padding: 0 var(--space-1);
+    font-family: var(--font-display);
+    font-size: 1.75rem;
+  }
+  .layoutIndex .navSection {
+    flex-direction: column;
+    gap: 0;
+  }
+  .layoutIndex .navSectionTitle {
+    display: block;
+    padding: 0 var(--space-1) var(--space-2);
+  }
+  /* O cartão é desenhado nas linhas: o título do grupo fica fora dele, sem mudar a marcação. */
+  .layoutIndex .navLink,
+  .layoutIndex .navLinkActive {
+    gap: var(--space-3);
+    min-height: 56px;
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-size: var(--text-lg);
+    white-space: normal;
+  }
+  .layoutIndex .navSectionTitle + .navLink {
+    border-top: 1px solid var(--border);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  .layoutIndex .navLink:last-child {
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+  .layoutIndex .navSectionTitle + .navLink:last-child {
+    border-radius: var(--radius-lg);
+  }
+  .layoutIndex .navLink:active {
+    background: var(--bg-hover);
+  }
+  .layoutIndex .navLink svg {
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary);
+  }
+  .layoutIndex .navLink .navChevron {
+    display: block;
+    margin-left: auto;
+    color: var(--text-muted);
+  }
+
+  /* Seção aberta: a lista some e o conteúdo ganha a largura toda, com voltar no topo. */
+  .layoutSection .nav {
+    display: none;
+  }
+  .sectionBack {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 40px;
+    margin: calc(-1 * var(--space-2)) 0 var(--space-3) calc(-1 * var(--space-2));
+    padding: 0 var(--space-2);
+    border: none;
+    border-radius: var(--radius-md);
+    background: none;
+    color: var(--accent);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+  }
+  .sectionBack svg {
+    width: 18px;
+    height: 18px;
+  }
+  .header {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+}
+
 /* ---------- Usuários e papéis ---------- */
 .tabsRow {
   margin-bottom: var(--space-4);

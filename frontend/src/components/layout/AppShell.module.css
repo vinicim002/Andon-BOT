@@ -147,37 +147,98 @@
   overflow: auto;
 }
 
-/* Telas estreitas: o trilho vira barra inferior, como em apps móveis. */
+/* ---------- Abas inferiores (celular) ---------- */
+/* No desktop não existem: o trilho lateral cumpre o papel. */
+.tabBar {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 0;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Pílula atrás do ícone ativo, como nas referências — no azul do Andon, não no verde do WhatsApp. */
+.tabPill {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  transition: background 0.15s;
+}
+.tabPill svg {
+  width: 22px;
+  height: 22px;
+}
+.tab[aria-current='page'] {
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+}
+.tab[aria-current='page'] .tabPill {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.tab:focus-visible {
+  outline: none;
+}
+.tab:focus-visible .tabPill {
+  box-shadow: var(--focus-ring);
+}
+.tabBadge {
+  position: absolute;
+  top: -5px;
+  left: calc(50% + 4px);
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--bg-surface);
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+/* Telas estreitas: o trilho dá lugar às abas com rótulo, e telas de detalhe ocupam tudo. */
 @media (max-width: 760px) {
   .shell {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .rail {
+    display: none;
   }
   .content {
     grid-row: 1;
   }
-  .rail {
+  .tabBar {
     grid-row: 2;
-    flex-direction: row;
-    justify-content: space-around;
-    overflow-x: auto;
-    padding: var(--space-1) var(--space-2);
+    display: grid;
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
-    border-right: none;
+    background: var(--bg-surface);
   }
-  .brand {
+  /* Conversa, ticket, contato, seção de configuração: tela cheia com seta de voltar. */
+  .detail {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .detail .tabBar {
     display: none;
-  }
-  .railGroup,
-  .railBottom {
-    flex-direction: row;
-    width: auto;
-    padding-top: 0;
-    margin: 0;
-    border-top: none;
-  }
-  .userButton {
-    margin-top: 0;
   }
 }
 

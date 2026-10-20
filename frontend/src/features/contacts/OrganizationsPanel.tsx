@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { Building2, MoreHorizontal, Pencil, Search, Trash2, Users } from 'lucide-react';
+import { Building2, MoreHorizontal, MoreVertical, Pencil, Search, Trash2, Users } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
 import { api } from '../../api';
-import { Button, DataTable, EmptyState } from '../../design-system/components';
+import { Button, DataTable, EmptyState, MobileList, MobileListRow } from '../../design-system/components';
 import { ConfirmDialog } from '../../design-system/ConfirmDialog';
 import { TextInput } from '../../design-system/forms';
 import { useToast } from '../../design-system/useToast';
 import type { Contact, Id, Organization } from '../../domain/types';
 import { formatDate } from '../../lib/format';
 import { cx } from '../../lib/cx';
+import { useIsMobile } from '../../lib/useIsMobile';
 import { OrganizationDialog } from './OrganizationDialog';
 import s from './Contacts.module.css';
 
@@ -20,6 +21,7 @@ type Props = {
 
 export function OrganizationsPanel({ organizations, contacts, onSeeContacts }: Props) {
   const toast = useToast();
+  const mobile = useIsMobile();
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Organization | null>(null);
   const [removing, setRemoving] = useState<Organization | null>(null);
@@ -65,6 +67,34 @@ export function OrganizationsPanel({ organizations, contacts, onSeeContacts }: P
           title={term ? 'Nenhuma organização encontrada' : 'Nenhuma organização ainda'}
           description={term ? 'Ajuste a busca.' : 'Organizações aparecem ao cadastrar contatos de empresas.'}
         />
+      ) : mobile ? (
+        // Organização não tem tela própria: o toque abre a edição; o resto fica no ⋮.
+        <MobileList>
+          {visible.map((organization) => {
+            const count = counts.get(organization.id) ?? 0;
+            return (
+              <MobileListRow
+                key={organization.id}
+                onClick={() => setEditing(organization)}
+                leading={
+                  <span className={s.orgIconLarge} aria-hidden>
+                    <Building2 />
+                  </span>
+                }
+                title={organization.name}
+                meta={count === 1 ? '1 contato' : `${count} contatos`}
+                subtitle={[organization.cnpj, organization.domain].filter(Boolean).join(' · ') || organization.notes}
+                trailing={
+                  <RowMenu
+                    organization={organization}
+                    onRemove={() => setRemoving(organization)}
+                    onSeeContacts={count > 0 ? () => onSeeContacts(organization.id) : undefined}
+                  />
+                }
+              />
+            );
+          })}
+        </MobileList>
       ) : (
         <DataTable>
           <thead>
@@ -114,21 +144,7 @@ export function OrganizationsPanel({ organizations, contacts, onSeeContacts }: P
                       icon={<Pencil />}
                       onClick={() => setEditing(organization)}
                     />
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
-                        <Button variant="ghost" iconOnlyLabel={`Mais ações para ${organization.name}`} icon={<MoreHorizontal />} />
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Portal>
-                        <DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
-                          <DropdownMenu.Item
-                            className={cx(s.menuItem, s.menuDanger)}
-                            onSelect={() => setRemoving(organization)}
-                          >
-                            <Trash2 aria-hidden /> Remover organização
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
+                    <RowMenu organization={organization} onRemove={() => setRemoving(organization)} />
                   </td>
                 </tr>
               );
@@ -167,5 +183,31 @@ export function OrganizationsPanel({ organizations, contacts, onSeeContacts }: P
         </p>
       </ConfirmDialog>
     </>
+  );
+}
+
+type RowMenuProps = { organization: Organization; onRemove: () => void; onSeeContacts?: () => void };
+
+// Mesmo menu na tabela e na lista do celular. Lá o "ver contatos" entra no menu, porque não
+// há coluna de contagem para servir de atalho.
+function RowMenu({ organization, onRemove, onSeeContacts }: RowMenuProps) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <Button variant="ghost" iconOnlyLabel={`Mais ações para ${organization.name}`} icon={onSeeContacts ? <MoreVertical /> : <MoreHorizontal />} />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
+          {onSeeContacts && (
+            <DropdownMenu.Item className={s.menuItem} onSelect={onSeeContacts}>
+              <Users aria-hidden /> Ver contatos
+            </DropdownMenu.Item>
+          )}
+          <DropdownMenu.Item className={cx(s.menuItem, s.menuDanger)} onSelect={onRemove}>
+            <Trash2 aria-hidden /> Remover organização
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }

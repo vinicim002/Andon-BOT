@@ -4,13 +4,26 @@ import { Plus, Search } from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { useCurrentUser } from '../../app/permissions';
-import { Avatar, Badge, Button, DataTable, EmptyState, ErrorState, LoadingState, Page, PageHeader } from '../../design-system/components';
+import {
+  Avatar,
+  Badge,
+  Button,
+  DataTable,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  MobileList,
+  MobileListRow,
+  Page,
+  PageHeader,
+} from '../../design-system/components';
 import { TextInput } from '../../design-system/forms';
 import { useToast } from '../../design-system/useToast';
 import { ticketPriority, ticketStatus } from '../../domain/labels';
 import type { TicketStatus } from '../../domain/types';
 import { cx } from '../../lib/cx';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, formatListTime } from '../../lib/format';
+import { useIsMobile } from '../../lib/useIsMobile';
 import { NewTicketDialog } from './NewTicketDialog';
 import s from './Tickets.module.css';
 
@@ -37,6 +50,7 @@ export function TicketsPage() {
   const [filter, setFilter] = useState<StatusFilter>('active');
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  const mobile = useIsMobile();
 
   const contactById = useMemo(() => new Map(contacts.data?.map((c) => [c.id, c])), [contacts.data]);
   const userById = useMemo(() => new Map(users.data?.map((u) => [u.id, u])), [users.data]);
@@ -93,6 +107,30 @@ export function TicketsPage() {
       {tickets.status === 'success' &&
         (visible.length === 0 ? (
           <EmptyState title="Nenhum ticket encontrado" description="Ajuste o filtro ou a busca." />
+        ) : mobile ? (
+          <MobileList>
+            {visible.map((ticket) => {
+              const contact = contactById.get(ticket.contactId);
+              const assignee = ticket.assigneeId ? userById.get(ticket.assigneeId) : undefined;
+              return (
+                <MobileListRow
+                  key={ticket.id}
+                  to={`/tickets/${ticket.id}`}
+                  leading={<Avatar name={contact?.name ?? '?'} size={46} />}
+                  title={ticket.subject}
+                  meta={formatListTime(ticket.updatedAt)}
+                  subtitle={`#${ticket.protocol} · ${contact?.name ?? 'Contato removido'}`}
+                  footer={
+                    <>
+                      <Badge tone={ticketStatus[ticket.status].tone}>{ticketStatus[ticket.status].label}</Badge>
+                      <Badge tone={ticketPriority[ticket.priority].tone}>{ticketPriority[ticket.priority].label}</Badge>
+                      {assignee && <Avatar name={assignee.name} size={20} />}
+                    </>
+                  }
+                />
+              );
+            })}
+          </MobileList>
         ) : (
           <DataTable>
             <thead>

@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Link } from 'react-router';
 import { Tooltip as RadixTooltip } from 'radix-ui';
 import { AlertTriangle, Inbox, LoaderCircle } from 'lucide-react';
 import type { Tone } from '../domain/labels';
@@ -150,5 +151,55 @@ export function DataTable({ children }: { children: ReactNode }) {
     <div className={s.tableWrap}>
       <table className={s.table}>{children}</table>
     </div>
+  );
+}
+
+// No celular, tabela de várias colunas vira rolagem lateral ilegível. As telas de lista usam
+// estas linhas no lugar dela: o padrão dos apps de mensagem (ícone · título e resumo · hora).
+export function MobileList({ children }: { children: ReactNode }) {
+  return <ul className={s.mobileList}>{children}</ul>;
+}
+
+type MobileListRowProps = {
+  // Linha que navega (`to`) ou que age na própria tela (`onClick`, ex.: abrir edição).
+  to?: string;
+  onClick?: () => void;
+  leading: ReactNode;
+  title: ReactNode;
+  meta?: ReactNode;
+  subtitle?: ReactNode;
+  footer?: ReactNode;
+  // Ação ao lado da linha (ex.: menu ⋮). Fica fora do alvo principal: botão dentro de botão
+  // não é HTML válido e confunde leitor de tela.
+  trailing?: ReactNode;
+};
+
+export function MobileListRow({ to, onClick, leading, title, meta, subtitle, footer, trailing }: MobileListRowProps) {
+  const content = (
+    <>
+      {leading}
+      <span className={s.mobileRowBody}>
+        <span className={s.mobileRowTop}>
+          <span className={s.mobileRowTitle}>{title}</span>
+          {meta && <span className={s.mobileRowMeta}>{meta}</span>}
+        </span>
+        {subtitle && <span className={s.mobileRowSubtitle}>{subtitle}</span>}
+        {footer && <span className={s.mobileRowFooter}>{footer}</span>}
+      </span>
+    </>
+  );
+  return (
+    <li className={s.mobileItem}>
+      {to ? (
+        <Link to={to} className={s.mobileRow}>
+          {content}
+        </Link>
+      ) : (
+        <button type="button" className={s.mobileRow} onClick={onClick}>
+          {content}
+        </button>
+      )}
+      {trailing && <span className={s.mobileRowTrailing}>{trailing}</span>}
+    </li>
   );
 }

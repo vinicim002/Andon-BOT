@@ -247,3 +247,25 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Celular: busca primeiro e filtros numa faixa que rola, como os chips das referências. */
+@media (max-width: 760px) {
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search {
+    order: -1;
+    width: 100%;
+  }
+  .filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 calc(-1 * var(--space-4));
+    padding: 0 var(--space-4);
+    scrollbar-width: none;
+  }
+  .filters > * {
+    flex-shrink: 0;
+  }
+}

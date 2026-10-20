@@ -44,6 +44,8 @@ export const router = createBrowserRouter([
         lazy: page(() => import('../features/contacts/ContactDetailPage'), (m) => m.ContactDetailPage, 'contacts.view'),
       },
       { path: 'painel', element: <PlaceholderPage title="Painel" description="Indicadores da operação em tempo real." /> },
+      // Aba "Mais" do celular: status, tema, sair e o que não cabe nas quatro abas.
+      { path: 'mais', lazy: page(() => import('../components/layout/MorePage'), (m) => m.MorePage) },
       { path: 'filas', element: <Navigate to="/configuracoes/filas" replace /> },
       { path: 'workflows', lazy: page(() => import('../features/workflows/WorkflowsPage'), (m) => m.WorkflowsPage, 'workflows.manage') },
       {

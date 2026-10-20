@@ -1,9 +1,23 @@
-import { Navigate, NavLink, Outlet } from 'react-router';
-import { BookOpen, ListOrdered, MessageSquareQuote, ScrollText, Smartphone, Sparkles, UserCog, Webhook, type LucideIcon } from 'lucide-react';
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router';
+import {
+  ArrowLeft,
+  BookOpen,
+  ChevronRight,
+  ListOrdered,
+  MessageSquareQuote,
+  ScrollText,
+  Smartphone,
+  Sparkles,
+  UserCog,
+  Webhook,
+  type LucideIcon,
+} from 'lucide-react';
 import { useCurrentUser } from '../../app/permissions';
 import { EmptyState, LoadingState } from '../../design-system/components';
 import type { Permission } from '../../domain/types';
 import { cx } from '../../lib/cx';
+import { useGoBack } from '../../lib/useGoBack';
+import { useIsMobile } from '../../lib/useIsMobile';
 import s from './Settings.module.css';
 
 type Item = { to: string; label: string; icon: LucideIcon; permission?: Permission; soon?: boolean };
@@ -45,8 +59,15 @@ function useVisibleSections() {
 
 export function SettingsLayout() {
   const { visible } = useVisibleSections();
+  const mobile = useIsMobile();
+  const goBack = useGoBack();
+  const { pathname } = useLocation();
+  // No celular é uma tela por vez: a lista de seções em /configuracoes, e cada seção em tela
+  // própria com voltar — o padrão das configurações do WhatsApp.
+  const atIndex = /^\/configuracoes\/?$/.test(pathname);
+
   return (
-    <div className={s.layout}>
+    <div className={cx(s.layout, mobile && (atIndex ? s.layoutIndex : s.layoutSection))}>
       <nav className={s.nav} aria-label="Configurações">
         <h1 className={s.navTitle}>Configurações</h1>
         {visible.map((section) => (
@@ -57,21 +78,30 @@ export function SettingsLayout() {
                 <Icon aria-hidden />
                 {label}
                 {soon && <span className={s.soon}>em breve</span>}
+                <ChevronRight className={s.navChevron} aria-hidden />
               </NavLink>
             ))}
           </div>
         ))}
       </nav>
       <div className={s.content}>
+        {mobile && !atIndex && (
+          <button type="button" className={s.sectionBack} onClick={() => goBack('/configuracoes')}>
+            <ArrowLeft aria-hidden /> Configurações
+          </button>
+        )}
         <Outlet />
       </div>
     </div>
   );
 }
 
-// /configuracoes abre a primeira seção que o papel permite.
+// /configuracoes abre a primeira seção que o papel permite. No celular não: lá a própria
+// lista de seções é a tela inicial (o layout já a mostra).
 export function SettingsHome() {
   const { visible, loading } = useVisibleSections();
+  const mobile = useIsMobile();
+  if (mobile) return null;
   if (loading) return <LoadingState />;
   const first = visible[0]?.items[0];
   if (!first) return <EmptyState title="Sem configurações disponíveis" description="Seu papel não dá acesso a nenhuma configuração." />;

@@ -3,6 +3,7 @@ import { AlertTriangle, Mic, Paperclip, Send, Smile, Type, Zap } from 'lucide-re
 import { Button } from '../../design-system/components';
 import type { QuickReply } from '../../domain/types';
 import { cx } from '../../lib/cx';
+import { useIsMobile } from '../../lib/useIsMobile';
 import s from './Inbox.module.css';
 
 type Props = {
@@ -24,6 +25,7 @@ export function Composer({ onSend, windowClosed, quickReplies, contactName }: Pr
   const [highlight, setHighlight] = useState(0);
   const [pickerForced, setPickerForced] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mobile = useIsMobile();
   const blocked = windowClosed && !internal;
 
   // "/" no início abre as respostas rápidas; o texto depois da barra filtra por atalho ou título.
@@ -73,7 +75,9 @@ export function Composer({ onSend, windowClosed, quickReplies, contactName }: Pr
       if (slash) setBody('');
       return;
     }
-    if (e.key === 'Enter' && !e.shiftKey) submit(e);
+    // No celular não existe Shift: Enter quebra a linha e quem envia é o botão, como no
+    // WhatsApp. `isComposing` evita enviar no meio de uma palavra do corretor do teclado.
+    if (e.key === 'Enter' && !e.shiftKey && !mobile && !e.nativeEvent.isComposing) submit(e);
   };
 
   return (

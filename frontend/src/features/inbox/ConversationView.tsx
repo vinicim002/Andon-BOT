@@ -1,7 +1,23 @@
 import { Fragment, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import { DropdownMenu } from 'radix-ui';
-import { ArrowRightLeft, Bot, BotOff, Camera, CheckCircle2, Forward, Lock, MoreHorizontal, Phone, RotateCcw, Ticket, UserCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  Bot,
+  BotOff,
+  Camera,
+  CheckCircle2,
+  Forward,
+  Info,
+  Lock,
+  MoreHorizontal,
+  MoreVertical,
+  Phone,
+  RotateCcw,
+  Ticket,
+  UserCheck,
+} from 'lucide-react';
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { BrandSymbol } from '../../design-system/BrandSymbol';
@@ -32,6 +48,11 @@ type Props = {
   onResolve: () => void;
   onReopen: () => void;
   onSend: (body: string, internal: boolean) => void;
+  // Celular: cabeçalho enxuto (voltar · contato · ⋮) e as ações de atendimento dentro do menu.
+  compact?: boolean;
+  onBack?: () => void;
+  // Toque no contato abre os dados dele em tela própria, como o perfil nas referências.
+  onShowInfo?: () => void;
 };
 
 export function ConversationView(props: Props) {
@@ -63,45 +84,84 @@ export function ConversationView(props: Props) {
         ? 'sem responsável'
         : 'em atendimento automático';
 
+  const identity = (
+    <>
+      <Avatar name={c.contact.name} size={38} />
+      <div className={s.convTitle}>
+        <strong>{c.contact.name}</strong>
+        <span>
+          <WhatsAppIcon className={s.convChannel} />#{c.contact.code} {subtitle}
+        </span>
+      </div>
+    </>
+  );
+
   return (
     <section className={s.conversation} aria-label={`Conversa com ${c.contact.name}`}>
-      <header className={s.convHeader}>
-        <Avatar name={c.contact.name} size={38} />
-        <div className={s.convTitle}>
-          <strong>{c.contact.name}</strong>
-          <span>
-            <WhatsAppIcon className={s.convChannel} />#{c.contact.code} {subtitle}
-          </span>
-        </div>
+      <header className={cx(s.convHeader, props.compact && s.convHeaderCompact)}>
+        {props.onBack && <Button variant="ghost" className={s.backButton} iconOnlyLabel="Voltar para a lista" icon={<ArrowLeft />} onClick={props.onBack} />}
+        {props.onShowInfo ? (
+          <button type="button" className={s.convIdentity} onClick={props.onShowInfo} aria-label={`Dados de ${c.contact.name}`}>
+            {identity}
+          </button>
+        ) : (
+          identity
+        )}
 
         <div className={s.convActions}>
-          <Tooltip content="Ligação (em breve)" side="bottom">
-            <span>
-              <Button variant="ghost" iconOnlyLabel="Ligar" icon={<Phone />} disabled />
-            </span>
-          </Tooltip>
-          {canAssign && !resolved && (
-            <Button variant="primary" icon={<UserCheck />} onClick={props.onAssign}>
-              Assumir
-            </Button>
+          {!props.compact && (
+            <>
+              <Tooltip content="Ligação (em breve)" side="bottom">
+                <span>
+                  <Button variant="ghost" iconOnlyLabel="Ligar" icon={<Phone />} disabled />
+                </span>
+              </Tooltip>
+              {canAssign && !resolved && (
+                <Button variant="primary" icon={<UserCheck />} onClick={props.onAssign}>
+                  Assumir
+                </Button>
+              )}
+              {canClose &&
+                (resolved ? (
+                  <Button icon={<RotateCcw />} onClick={props.onReopen}>
+                    Reabrir
+                  </Button>
+                ) : (
+                  <Button icon={<CheckCircle2 />} onClick={props.onResolve}>
+                    Resolver
+                  </Button>
+                ))}
+            </>
           )}
-          {canClose &&
-            (resolved ? (
-              <Button icon={<RotateCcw />} onClick={props.onReopen}>
-                Reabrir
-              </Button>
-            ) : (
-              <Button icon={<CheckCircle2 />} onClick={props.onResolve}>
-                Resolver
-              </Button>
-            ))}
 
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <Button variant="ghost" iconOnlyLabel="Mais ações" icon={<MoreHorizontal />} />
+              <Button variant="ghost" iconOnlyLabel="Mais ações" icon={props.compact ? <MoreVertical /> : <MoreHorizontal />} />
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
+                {/* No celular os botões do cabeçalho não cabem: vêm para o topo do menu. */}
+                {props.compact && (
+                  <>
+                    {props.onShowInfo && (
+                      <DropdownMenu.Item className={s.menuItem} onSelect={props.onShowInfo}>
+                        <Info aria-hidden /> Dados do contato
+                      </DropdownMenu.Item>
+                    )}
+                    {canAssign && !resolved && (
+                      <DropdownMenu.Item className={s.menuItem} onSelect={props.onAssign}>
+                        <UserCheck aria-hidden /> Assumir
+                      </DropdownMenu.Item>
+                    )}
+                    {canClose && (
+                      <DropdownMenu.Item className={s.menuItem} onSelect={resolved ? props.onReopen : props.onResolve}>
+                        {resolved ? <RotateCcw aria-hidden /> : <CheckCircle2 aria-hidden />}
+                        {resolved ? 'Reabrir' : 'Resolver'}
+                      </DropdownMenu.Item>
+                    )}
+                    <DropdownMenu.Separator className={s.menuSeparator} />
+                  </>
+                )}
                 {props.onTransfer && (
                   <DropdownMenu.Item className={s.menuItem} disabled={resolved} onSelect={props.onTransfer}>
                     <ArrowRightLeft aria-hidden /> Transferir…
