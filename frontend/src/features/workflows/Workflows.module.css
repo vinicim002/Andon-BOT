@@ -41,6 +41,18 @@
   width: 48px;
   text-align: right;
 }
+.workflowMark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
 
 .menu {
   min-width: 200px;

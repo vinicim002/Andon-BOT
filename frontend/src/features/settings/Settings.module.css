@@ -895,6 +895,42 @@
   background: var(--accent);
 }
 
+@media (max-width: 760px) {
+  .tabsRow {
+    overflow-x: auto;
+    margin-right: calc(-1 * var(--space-4));
+    padding-right: var(--space-4);
+  }
+  .toolbar {
+    align-items: stretch;
+  }
+  .toolbarRight {
+    flex-wrap: wrap;
+  }
+  .toolbarRight .searchBox {
+    width: 100%;
+  }
+  .toolbarRight > button {
+    flex: 1;
+  }
+  .chipFilters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 calc(-1 * var(--space-4));
+    padding: 0 var(--space-4);
+    scrollbar-width: none;
+  }
+  .chipFilter {
+    flex-shrink: 0;
+  }
+  .roleGrid {
+    grid-template-columns: 1fr;
+  }
+  .roleCard {
+    padding: var(--space-4);
+  }
+}
+
 .permissionMatrix {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

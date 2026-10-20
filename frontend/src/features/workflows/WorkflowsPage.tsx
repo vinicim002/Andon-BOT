@@ -5,7 +5,7 @@ import { Copy, MoreHorizontal, Pause, Pencil, Play, Plus, Trash2 } from 'lucide-
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { useCurrentUser } from '../../app/permissions';
-import { Badge, Button, DataTable, EmptyState, ErrorState, LoadingState, Page, PageHeader } from '../../design-system/components';
+import { Badge, Button, DataTable, EmptyState, ErrorState, LoadingState, MobileList, MobileListRow, Page, PageHeader } from '../../design-system/components';
 import { ConfirmDialog } from '../../design-system/ConfirmDialog';
 import { Modal } from '../../design-system/Modal';
 import { useToast } from '../../design-system/useToast';
@@ -13,6 +13,7 @@ import type { Workflow, WorkflowTemplate } from '../../domain/workflow';
 import { templateInfo } from '../../domain/workflowTemplates';
 import { cx } from '../../lib/cx';
 import { formatAgo } from '../../lib/format';
+import { useIsMobile } from '../../lib/useIsMobile';
 import { triggerLabel } from './catalog';
 import { publishedVersion, hasUnpublishedChanges } from './versioning';
 import s from './Workflows.module.css';
@@ -24,6 +25,7 @@ export function WorkflowsPage() {
   const data = useQuery(() => Promise.all([api.workflows(), api.users()]));
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<Workflow | null>(null);
+  const mobile = useIsMobile();
 
   if (data.status === 'loading' || !me) return <LoadingState />;
   if (data.status === 'error') return <ErrorState error={data.error} />;
@@ -59,6 +61,47 @@ export function WorkflowsPage() {
 
       {workflows.length === 0 ? (
         <EmptyState title="Nenhum workflow ainda" description="Comece por um modelo pronto — leva menos de um minuto." />
+      ) : mobile ? (
+        <MobileList>
+          {[...workflows]
+            .sort((a, b) => b.draftUpdatedAt.localeCompare(a.draftUpdatedAt))
+            .map((w) => {
+              const published = publishedVersion(w);
+              const pending = hasUnpublishedChanges(w);
+              return (
+                <MobileListRow
+                  key={w.id}
+                  to={`/workflows/${w.id}`}
+                  leading={<span className={s.workflowMark}>{w.name.slice(0, 1).toUpperCase()}</span>}
+                  title={w.name}
+                  meta={w.stats.runs24h ? `${w.stats.runs24h} hoje` : 'Sem execuções'}
+                  subtitle={w.description || triggerLabel((published?.definition ?? w.draft).nodes)}
+                  footer={
+                    <>
+                      {!published ? <Badge tone="neutral">Nunca publicado</Badge> : <Badge tone={w.status === 'active' ? 'success' : 'warning'}>{w.status === 'active' ? `Ativo · v${published.number}` : `Pausado · v${published.number}`}</Badge>}
+                      {pending && <span className={s.pending}>Alterações não publicadas</span>}
+                    </>
+                  }
+                  trailing={
+                    <DropdownMenu.Root>
+                      <DropdownMenu.Trigger asChild>
+                        <Button variant="ghost" iconOnlyLabel={`Ações para ${w.name}`} icon={<MoreHorizontal />} />
+                      </DropdownMenu.Trigger>
+                      <DropdownMenu.Portal>
+                        <DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
+                          <DropdownMenu.Item className={s.menuItem} onSelect={() => navigate(`/workflows/${w.id}`)}><Pencil aria-hidden /> Abrir editor</DropdownMenu.Item>
+                          {published && (w.status === 'active' ? <DropdownMenu.Item className={s.menuItem} onSelect={() => run(api.setWorkflowStatus(w.id, 'paused'), `${w.name} pausado.`)}><Pause aria-hidden /> Pausar</DropdownMenu.Item> : <DropdownMenu.Item className={s.menuItem} onSelect={() => run(api.setWorkflowStatus(w.id, 'active'), `${w.name} ativado.`)}><Play aria-hidden /> Ativar</DropdownMenu.Item>)}
+                          <DropdownMenu.Item className={s.menuItem} onSelect={() => run(api.duplicateWorkflow(w.id, me.id), 'Cópia criada como rascunho.')}><Copy aria-hidden /> Duplicar</DropdownMenu.Item>
+                          <DropdownMenu.Separator className={s.menuSeparator} />
+                          <DropdownMenu.Item className={cx(s.menuItem, s.menuDanger)} onSelect={() => setDeleting(w)}><Trash2 aria-hidden /> Excluir</DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Portal>
+                    </DropdownMenu.Root>
+                  }
+                />
+              );
+            })}
+        </MobileList>
       ) : (
         <DataTable>
           <thead>

@@ -4,7 +4,7 @@ import { Ban, KeyRound, Mail, MoreHorizontal, RotateCcw, Search, UserPlus, XCirc
 import { api } from '../../api';
 import { useQuery } from '../../api/useQuery';
 import { useCurrentUser } from '../../app/permissions';
-import { Avatar, Badge, Button, DataTable, EmptyState, ErrorState, LoadingState } from '../../design-system/components';
+import { Avatar, Badge, Button, DataTable, EmptyState, ErrorState, LoadingState, MobileList, MobileListRow } from '../../design-system/components';
 import { ConfirmDialog } from '../../design-system/ConfirmDialog';
 import { Segmented, TextInput } from '../../design-system/forms';
 import { useToast } from '../../design-system/useToast';
@@ -13,6 +13,7 @@ import type { OperationalQueue, Role, User, UserStatus } from '../../domain/type
 import { cx } from '../../lib/cx';
 import { formatAgo, formatRelative } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
+import { useIsMobile } from '../../lib/useIsMobile';
 import { EditUserDialog } from './EditUserDialog';
 import { InviteDialog } from './InviteDialog';
 import { RolesPanel } from './RolesPanel';
@@ -68,6 +69,7 @@ function UsersPanel({ users, roles, queues }: { users: User[]; roles: Role[]; qu
   const [inviting, setInviting] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [confirm, setConfirm] = useState<{ kind: 'disable' | 'revoke'; user: User } | null>(null);
+  const mobile = useIsMobile();
 
   const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? '—';
   const queuesOf = (u: User) => queues.filter((q) => q.memberIds.includes(u.id));
@@ -115,6 +117,35 @@ function UsersPanel({ users, roles, queues }: { users: User[]; roles: Role[]; qu
 
       {visible.length === 0 ? (
         <EmptyState title="Ninguém encontrado" description="Ajuste o filtro ou a busca." />
+      ) : mobile ? (
+        <MobileList>
+          {visible.map((u) => {
+            const expired = u.invite && new Date(u.invite.expiresAt).getTime() < now;
+            const queuesForUser = queuesOf(u);
+            return (
+              <MobileListRow
+                key={u.id}
+                onClick={() => u.status !== 'disabled' && setEditing(u)}
+                leading={<Avatar name={u.name} size={44} presence={u.status === 'active' ? u.availability : undefined} />}
+                title={<>{u.name}{u.id === me.id && <span className={s.youTag}>você</span>}</>}
+                meta={u.lastSeenAt ? formatRelative(u.lastSeenAt) : 'Nunca'}
+                subtitle={`${roleName(u.roleId)} · ${u.email}`}
+                footer={<><Badge tone={expired ? 'danger' : userStatus[u.status].tone}>{expired ? 'Convite expirado' : userStatus[u.status].label}</Badge>{queuesForUser.map((q) => <span key={q.id} className={s.queueChip}><span className={s[`dot-${q.color}`]} aria-hidden />{q.name}</span>)}</>}
+                trailing={
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild><Button variant="ghost" iconOnlyLabel={`Ações para ${u.name}`} icon={<MoreHorizontal />} /></DropdownMenu.Trigger>
+                    <DropdownMenu.Portal><DropdownMenu.Content className={s.menu} align="end" sideOffset={4}>
+                      <DropdownMenu.Item className={s.menuItem} disabled={u.status === 'disabled'} onSelect={() => setEditing(u)}><KeyRound aria-hidden /> Editar papel e filas</DropdownMenu.Item>
+                      {u.status === 'invited' && <><DropdownMenu.Item className={s.menuItem} onSelect={() => run(api.resendInvite(u.id, me.id), `Convite reenviado para ${u.email}.`)}><Mail aria-hidden /> Reenviar convite</DropdownMenu.Item><DropdownMenu.Separator className={s.menuSeparator} /><DropdownMenu.Item className={cx(s.menuItem, s.menuDanger)} onSelect={() => setConfirm({ kind: 'revoke', user: u })}><XCircle aria-hidden /> Revogar convite</DropdownMenu.Item></>}
+                      {u.status === 'active' && <><DropdownMenu.Separator className={s.menuSeparator} /><DropdownMenu.Item className={cx(s.menuItem, s.menuDanger)} disabled={u.id === me.id} onSelect={() => setConfirm({ kind: 'disable', user: u })}><Ban aria-hidden /> Desativar acesso</DropdownMenu.Item></>}
+                      {u.status === 'disabled' && <DropdownMenu.Item className={s.menuItem} onSelect={() => run(api.setUserStatus(u.id, 'active', me.id), `Acesso de ${u.name} reativado.`)}><RotateCcw aria-hidden /> Reativar acesso</DropdownMenu.Item>}
+                    </DropdownMenu.Content></DropdownMenu.Portal>
+                  </DropdownMenu.Root>
+                }
+              />
+            );
+          })}
+        </MobileList>
       ) : (
         <DataTable>
           <thead>
