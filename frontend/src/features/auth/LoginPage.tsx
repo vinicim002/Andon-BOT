@@ -7,6 +7,9 @@ import { BrandSymbol } from '../../design-system/BrandSymbol';
 import { formatDate } from '../../lib/format';
 import s from './LoginPage.module.css';
 
+// Ligado em desenvolvimento sempre; em deploy, só quando VITE_DEMO_ACCESS=true.
+const demoAccessEnabled = import.meta.env.DEV || import.meta.env.VITE_DEMO_ACCESS === 'true';
+
 export function LoginPage() {
   const { user, signIn } = useSession();
   const navigate = useNavigate();
@@ -47,8 +50,9 @@ export function LoginPage() {
     void enter(email, password);
   };
 
-  // Atalho de desenvolvimento: preenche os campos à vista e entra, para não digitar a conta de
-  // demonstração a cada recarregamento. `import.meta.env.DEV` garante que não vai para o build.
+  // Atalho de demonstração: preenche os campos à vista e entra, para não digitar a conta a
+  // cada recarregamento. Aparece em desenvolvimento e em deploys de demonstração (feira,
+  // apresentação) — num build de produção real a variável fica desligada e o botão não existe.
   const enterWithDemoAccess = () => {
     setEmail(demoAccess.email);
     setPassword(demoAccess.password);
@@ -128,7 +132,7 @@ export function LoginPage() {
             {!submitting && <ArrowRight aria-hidden />}
           </button>
 
-          {import.meta.env.DEV && (
+          {demoAccessEnabled && (
             <button type="button" className={s.demoAccess} onClick={enterWithDemoAccess} disabled={submitting}>
               <Zap aria-hidden />
               <span>
